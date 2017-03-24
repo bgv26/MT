@@ -8,6 +8,7 @@ class AdType(Enum):
     COMMERCE = 'commerce'
     SUBURBIAN = 'suburbian'
 
+
 class ForDay(Enum):
     UNLIM = 0
     FOR_DAY = 1
@@ -82,6 +83,19 @@ class SaleTypeFirst(Enum):
     DDU = 'ddu'
 
 
+class RoomNum(Enum):
+    ROOM = 0
+    SINGLE_ROOM = 1
+    DOUBLE_ROOM = 2
+    TRIPLE_ROOM = 3
+    FORTH_ROOM = 4
+    FIVE_ROOM = 5
+    MULTI_ROOM = 6
+    FREE = 7
+    STUDIO = 9
+    BED = 10
+
+
 class Windows(Enum):
     YARD = 1
     STREET = 2
@@ -105,7 +119,7 @@ class Finishing(Enum):
     NO = 0
 
 
-class SaleTypeSecond(Enum):
+class SaleTypeUsed(Enum):
     FREE = 'F'
     ALTERNATE = 'A'
 
@@ -194,5 +208,52 @@ def to_cian(ad_type):
     return root
 
 
+doc = etree.parse('format_new.xml')
+objects = doc.xpath('bn-object')
 
-print(etree.tostring(to_cian(AdType.RENT.value), pretty_print=True, xml_declaration=True, encoding="utf-8"))
+sales = [o for o in objects
+         if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text() = "продажа"]')]
+print(len(sales))
+rents = [o for o in objects
+         if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text()="аренда"]')]
+print(len(rents))
+suburbians = [o for o in objects
+              if o.xpath('type[text() = "коттедж" or contains(text(), "дом")]')]
+print(len(suburbians))
+commerce = [o for o in objects
+              if o.xpath('type[not(text() = "квартира" or text() = "комната" or '
+                         'text() = "коттедж" or contains(text(), "дом"))]')]
+print(len(commerce))
+# objects = doc.xpath('bn-object/action [text()="продажа"]')
+# for obj in objects:
+#     info = dict()
+#     info['ad_id'] = obj.xpath('id').pop().text
+#     obj_type = obj.xpath('type').pop().text
+#     obj_action = obj.xpath('action').pop().text
+#     if obj_type in ('квартира', 'комната'):
+#         if obj_action == 'аренда':
+#             info['ad_type'] = AdType.RENT.value
+#         if  obj_action == 'продажа':
+#             info['ad_type'] = AdType.SALE.value
+#
+#     obj_url = obj.xpath('url').pop().text
+#     obj_location_area = obj.xpath('location/area').pop().text
+#     obj_location_city = obj.xpath('location/city').pop().text
+#     obj_location_ctar = obj.xpath('location/ctar').pop().text
+#     obj_location_district = obj.xpath('location/district').pop().text
+#     obj_location_place = obj.xpath('location/place').pop().text
+#     obj_location_street = obj.xpath('location/street').pop().text
+#     obj_location_house = obj.xpath('location/house').pop().text
+#     obj_location_address = obj.xpath('location/address').pop().text
+#     obj_price_value = obj.xpath('price/value').pop().text
+#     obj_price_currency = obj.xpath('price/currency').pop().text
+#     obj_price_period = obj.xpath('price/period').pop().text
+#     obj_price_unit = obj.xpath('price/unit').pop().text
+#     obj_add_terms = obj.xpath('price/additional-terms')
+#     for term in obj_add_terms:
+#         if part
+#     if obj_type in ('квартира', 'комната'):
+
+
+# print(etree.tostring(doc, pretty_print=True, xml_declaration=True, encoding="utf-8"))
+# print(etree.tostring(to_cian(AdType.RENT.value), pretty_print=True, xml_declaration=True, encoding="utf-8"))
