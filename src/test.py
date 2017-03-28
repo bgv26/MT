@@ -1,6 +1,80 @@
 from lxml import etree
 from enum import Enum
 
+# definitions
+ID_PREFIX = "1508"
+
+BLOCK_PHRASES = (
+    'ена 1',
+    'ена 2',
+    'ена: 1',
+    'ена: 2',
+    'найти',
+    'Продажа квартир',
+    'омощь',
+    'оможем',
+    'омогу',
+    'выбрать квартиру',
+    'выбор квартир',
+    'квартир мало',
+    'родажа',
+    'квартир ',
+    'варианты',
+    '1-комнатные',
+    '2х-комнатные',
+    '1-2-3 комнатные',
+    '1-2 комнатные',
+    'Есть варианты по этажам',
+    'квартиры на других этажах',
+    'выбор квартир',
+    'торговые площади',
+)
+
+LOCATIONS = {
+    'Аксай': ('Аксай',
+              'Водники', 'Военный городок',
+              'Поле чудес №2',
+              'Стекольный завод'),
+    'Батайск': ('Авиагородок',
+                'Батайск', 'Булгакова',
+                'ВЖМ', 'Ворошилова',
+                'Гайдара',
+                'Дачный', 'Железнодорожный тупик',
+                'Залесье', 'Залесье/Остановка', 'Западный Батайск', 'Заря',
+                'Кирова', 'Коваливского', 'Комсомольская', 'Книжный', 'Красный сад', 'Крупской',
+                'Крупской/Парк',
+                'Куйбышева',
+                'Луначарского', 'Лунева',
+                'Наливная',
+                'Огородная', 'Октябрьская',
+                'Парковый', 'Половинко',
+                'РДВС', 'Ростовский',
+                'Северная Звезда', 'Северный массив', 'Соленое озеро', 'Солнечный', 'Стадионный',
+                'Старый город',
+                'Урицкого', 'Ушинского',
+                'Энгельса'),
+    'Ростов-на-Дону': ('1 Орджоникидзе', '2 Орджоникидзе', '1 Пламенный',
+                       'Автосборочный', 'Александровка', 'Ашан, Леге-Артис, СЖМ', 'Аэропорт',
+                       'Берберовка, Аэропорт', 'Болгарстрой', 'Ботанический сад (ЖДР)',
+                       'ВЖМ', 'Военвед',
+                       'Доватора (ЖДР, ЗЖМ)',
+                       'ЖДР',
+                       'Западная промзона (ЗЖМ)', 'Заречная промзона, Левый берег', 'ЗЖМ (Западный)', 'Зоопарк',
+                       'Каменка', 'Каратаево', 'Комсомольская площадь', 'Красный Аксай, Нахичевань',
+                       'Красный Маяк (ЗЖМ)', 'Красный сад', 'Кумженская роща',
+                       'Левенцовка (ЗЖМ)', 'Левый берег', 'Леге-Артис, СЖМ', 'Ленина', 'Лесополоса, Болгарстрой',
+                       'Мирный, Чкаловский', 'Мясниковань, СЖМ',
+                       'Нариманова', 'Нахичевань', 'Новое поселение',
+                       'площадь Ленина', 'Портовая (ЖДР, ЗЖМ)',
+                       'Рабочий городок', 'РИИЖТ', 'Ростовское море',
+                       'Сельмаш', 'СЖМ', 'СЖМ (Северный)', 'совхоз СКВО, СЖМ', 'Старый автовокзал, Нахичевань',
+                       'Стройгородок', 'Суворовский',
+                       'Темерник', 'Темерницкий',
+                       'Фрунзе',
+                       'Центр',
+                       'Чкаловский')
+}
+
 
 class AdType(Enum):
     RENT = 'flats_rent'
@@ -208,6 +282,56 @@ def to_cian(ad_type):
     return root
 
 
+def gen_new_id(text):
+    return ID_PREFIX + text[4:]
+
+
+def get_node_value(parent, node):
+    return parent.xpath(node).pop().text.strip()
+
+
+def is_block(text):
+    for block in BLOCK_PHRASES:
+        if block in text:
+            return True
+    return False
+
+
+def get_city_by_place(text):
+    for key, value in LOCATIONS.items():
+        if text in value:
+            return key
+    return ''
+
+
+def get_lot_number(text):
+    # symbols from 4 length 5 + '-8' + char value from three last digits in text
+    return text[4:9] + '-8' + bytes([int(text[9:])]).decode('cp1251')
+
+def from_bn(item):
+    info = dict()
+    ad_id = get_node_value(item, 'id')
+    info['ad_id'] = gen_new_id(ad_id)
+    lot_number = get_lot_number(ad_id)
+    info['rooms_num'] = get_node_value(item, 'rooms-total')
+    info['floor-total'] = get_node_value(item, 'floors')
+    info['floor'] = get_node_value(item, 'floor')
+
+    description = get_node_value(item, 'description/full')
+    if is_block(description):
+        print('Blocked: [{}]'.format(description))
+        return
+
+    place = get_node_value(item, 'locality/place')
+    city = get_node_value(item, 'location/city')
+    street = get_node_value(item, 'locality/street')
+    if get_city_by_place(place) == '' and get_city_by_place(street) == '' and city != '':
+        print('Fix this:[{}]'.format(place))
+
+    info['address-locality'] = city
+    info['address-street'] = street
+
+
 doc = etree.parse('format_new.xml')
 objects = doc.xpath('bn-object')
 
@@ -221,8 +345,8 @@ suburbians = [o for o in objects
               if o.xpath('type[text() = "коттедж" or contains(text(), "дом")]')]
 print(len(suburbians))
 commerce = [o for o in objects
-              if o.xpath('type[not(text() = "квартира" or text() = "комната" or '
-                         'text() = "коттедж" or contains(text(), "дом"))]')]
+            if o.xpath('type[not(text() = "квартира" or text() = "комната" or '
+                       'text() = "коттедж" or contains(text(), "дом"))]')]
 print(len(commerce))
 # objects = doc.xpath('bn-object/action [text()="продажа"]')
 # for obj in objects:
