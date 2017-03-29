@@ -367,7 +367,7 @@ def from_bn(item, sell=True):
     info['area-living'] = area_living
     info['area-kitchen'] = get_node_value(item, 'kitchen/value')
     info['area-total'] = get_node_value(item, 'total/value')
-    if area_living:
+    if area_living and rooms_num:
         info['area-rooms'] = get_rooms_areas(rooms_num, float(area_living))
     else:
         print('Fix this (area living is empty) for advert id: [{}]'.format(ad_id))
@@ -403,13 +403,13 @@ def from_bn(item, sell=True):
     info['address-locality'] = city
     info['address-street'] = street
 
-    if sell:
+    if sell and offer_type != 'дом':
         new_building_pattern = re.compile(r'\sсдача\s+(?:[1-4]-[\d]{4})')
         if new_building_pattern.search(description):
-            info['options_object_type'] = 2
-            info['options_ipoteka'] = 1
+            info['options-object-type'] = 2
+            info['options-ipoteka'] = 1
         else:
-            info['options_object_type'] = 1
+            info['options-object-type'] = 1
 
     lot_number = get_lot_number(ad_id)
     info['note'] = "{}\nПри звонке в {} укажите лот: {}".format(description, office, lot_number)
