@@ -1,5 +1,7 @@
-from lxml import etree
+import re
 from enum import Enum
+
+from lxml import etree
 
 # definitions
 ID_PREFIX = "1508"
@@ -74,6 +76,27 @@ LOCATIONS = {
                        'Центр',
                        'Чкаловский')
 }
+
+OFFICES = {
+    '8(863)2-270-500': {'office': 'ДОНМТ офис Центральный 1', 'phone': '9381361278'},
+    '8(863)2-990-707': {'office': 'ДОНМТ офис Центральный 2', 'phone': '9604434798'},
+    '8(863)2-270-909': {'office': 'ДОНМТ офис Центральный 3', 'phone': '9286216057'},
+    '8(863)200-67-67': {'office': 'ДОНМТ офис Западный', 'phone': '9298174480'},
+    '8(863)2-300-909': {'office': 'ДОНМТ офис Северный', 'phone': '9885669794'},
+    '8(863)2-500-400': {'office': 'ДОНМТ офис Северный', 'phone': '9885669794'},
+    '8(863)200-85-85': {'office': 'ДОНМТ офис Стройгородок', 'phone': '9034067095'},
+    '8(863)300-24-00': {'office': 'ДОНМТ офис Восточный', 'phone': '9045033362'},
+    '8(863)2-417-423': {'office': 'ДОНМТ офис Батайск', 'phone': '9281879795'}
+}
+
+PROPORTIONS = (
+    (100,),
+    (60, 40),
+    (40, 30, 30),
+    (30, 25, 25, 20),
+    (25, 20, 20, 20, 15),
+    (20, 20, 15, 15, 15, 15)
+)
 
 
 class AdType(Enum):
@@ -282,12 +305,13 @@ def to_cian(ad_type):
     return root
 
 
-def gen_new_id(text):
-    return ID_PREFIX + text[4:]
+def gen_new_id(offer_id):
+    return ID_PREFIX + offer_id[4:]
 
 
 def get_node_value(parent, node):
-    return parent.xpath(node).pop().text.strip()
+    value = parent.xpath(node)
+    return value.pop().text.strip() if len(value) else ''
 
 
 def is_block(text):
@@ -297,6 +321,13 @@ def is_block(text):
     return False
 
 
+def get_rooms_areas(rooms, area):
+    # split living area to room's areas in fixed PROPORTIONS
+    areas = [round(area * room / 100, 1) for room in PROPORTIONS[rooms - 1][:-1]]
+    areas.append(round(area - sum(areas), 1))
+    return '+'.join(map(str, areas))
+
+
 def get_city_by_place(text):
     for key, value in LOCATIONS.items():
         if text in value:
@@ -304,50 +335,101 @@ def get_city_by_place(text):
     return ''
 
 
-def get_lot_number(text):
+def get_office_suffix(offer_id):
+    return bytes([int(offer_id[9:])]).decode('cp1251')
+
+
+def get_lot_number(offer_id):
     # symbols from 4 length 5 + '-8' + char value from three last digits in text
-    return text[4:9] + '-8' + bytes([int(text[9:])]).decode('cp1251')
+    return offer_id[4:9] + '-8' + get_office_suffix(offer_id)
 
-def from_bn(item):
-    info = dict()
-    ad_id = get_node_value(item, 'id')
-    info['ad_id'] = gen_new_id(ad_id)
-    lot_number = get_lot_number(ad_id)
-    info['rooms_num'] = get_node_value(item, 'rooms-total')
-    info['floor-total'] = get_node_value(item, 'floors')
-    info['floor'] = get_node_value(item, 'floor')
 
+def from_bn(item, sell=True):
     description = get_node_value(item, 'description/full')
     if is_block(description):
         print('Blocked: [{}]'.format(description))
         return
 
-    place = get_node_value(item, 'locality/place')
+    info = dict()
+
+    ad_id = get_node_value(item, 'id')
+
+    info['ad_id'] = gen_new_id(ad_id)
+
+    offer_type = get_node_value(item, 'type')
+    if offer_type == 'комната':
+        rooms_num = int(get_node_value(item, 'rooms-offer'))
+        info['rooms_num'] = 0
+    else:
+        rooms_num = int(get_node_value(item, 'rooms-total'))
+        info['rooms_num'] = rooms_num
+
+    area_living = get_node_value(item, 'living/value')
+    info['area-living'] = area_living
+    info['area-kitchen'] = get_node_value(item, 'kitchen/value')
+    info['area-total'] = get_node_value(item, 'total/value')
+    if area_living:
+        info['area-rooms'] = get_rooms_areas(rooms_num, float(area_living))
+    else:
+        print('Fix this (area living is empty) for advert id: [{}]'.format(ad_id))
+
+    price = int(get_node_value(item, 'price/value'))
+    if get_office_suffix(ad_id) != '*':
+        if price * 0.025 < 10000:
+            price -= price * 0.025
+        else:
+            price -= 90123
+    info['price'] = price
+
+    info['floor-total'] = get_node_value(item, 'floors')
+    info['floor'] = get_node_value(item, 'floor')
+
+    agent_phone = get_node_value(item, 'agent/phone')
+    office = OFFICES[agent_phone]['office']
+    info['phone'] = OFFICES[agent_phone]['phone']
+
+    place = get_node_value(item, 'location/place')
     city = get_node_value(item, 'location/city')
-    street = get_node_value(item, 'locality/street')
+    street = get_node_value(item, 'location/street')
     if get_city_by_place(place) == '' and get_city_by_place(street) == '' and city != '':
         print('Fix this:[{}]'.format(place))
 
     info['address-locality'] = city
     info['address-street'] = street
 
+    if sell:
+        new_building_pattern = re.compile(r'\sсдача\s+(?:[1-4]-[\d]{4})')
+        if new_building_pattern.search(description):
+            info['options_object_type'] = 2
+            info['options_ipoteka'] = 1
+        else:
+            info['options_object_type'] = 1
 
-doc = etree.parse('format_new.xml')
+    lot_number = get_lot_number(ad_id)
+    info['note'] = "{}\nПри звонке в {} укажите лот: {}".format(description, office, lot_number)
+
+    info['photo'] = [photo.text for photo in item.xpath('files/image')]
+    return info
+
+
+# doc = etree.parse('format_new.xml')
+doc = etree.parse('bncat.xml')
 objects = doc.xpath('bn-object')
 
 sales = [o for o in objects
          if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text() = "продажа"]')]
-print(len(sales))
+for sale in sales:
+    print(from_bn(sale))
 rents = [o for o in objects
          if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text()="аренда"]')]
-print(len(rents))
+# print(len(rents))
 suburbians = [o for o in objects
               if o.xpath('type[text() = "коттедж" or contains(text(), "дом")]')]
-print(len(suburbians))
+# print(len(suburbians))
 commerce = [o for o in objects
             if o.xpath('type[not(text() = "квартира" or text() = "комната" or '
                        'text() = "коттедж" or contains(text(), "дом"))]')]
-print(len(commerce))
+# print(len(commerce))
 # objects = doc.xpath('bn-object/action [text()="продажа"]')
 # for obj in objects:
 #     info = dict()
