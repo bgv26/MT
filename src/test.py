@@ -248,6 +248,10 @@ class LandType(Enum):
     INVEST = 6
 
 
+class EmptyRequiredFieldException(Exception):
+    pass
+
+
 def to_cian(ad_type):
     root = etree.Element(ad_type)
     offer = etree.SubElement(root, 'offer')
@@ -308,9 +312,17 @@ def gen_new_id(offer_id):
     return ID_PREFIX + offer_id[4:]
 
 
-def get_node_value(parent, node):
-    value = parent.xpath(node)
-    return value.pop().text.strip() if len(value) else ''
+def get_node_value(parent, node, required=False):
+    try:
+        value = parent.xpath(node)
+        return value.pop().text.strip()
+    except IndexError:
+        ad_id = get_node_value(parent, 'id', True)
+        print('Fix this ({} empty) for advert id: [{}]'.format(node, ad_id))
+        if required:
+            raise EmptyRequiredFieldException(
+                'Blocked: empty required field ({}) in advert id [{}]:'.format(node, ad_id))
+        return ''
 
 
 def is_block(text):
@@ -344,66 +356,73 @@ def get_lot_number(offer_id):
 
 
 def from_bn(item, sell=True):
-    description = get_node_value(item, 'description/full')
-    if is_block(description):
-        print('Blocked: [{}]'.format(description))
+    try:
+        description = get_node_value(item, 'description/full')
+
+        info = dict()
+
+        ad_id = get_node_value(item, 'id', True)
+
+        info['ad_id'] = gen_new_id(ad_id)
+
+        price = int(get_node_value(item, 'price/value', True))
+        if get_office_suffix(ad_id) != '*':
+            if price * 0.025 < 10000:
+                price -= price * 0.025
+            else:
+                price -= 90123
+        info['price'] = price
+
+        floor_total = get_node_value(item, 'floors', True)
+        info['floor-total'] = floor_total
+        floor = get_node_value(item, 'floor', True)
+        info['floor'] = floor
+
+        agent_phone = get_node_value(item, 'agent/phone', True)
+        info['phone'] = OFFICES[agent_phone]['phone']
+
+        place = get_node_value(item, 'location/place')
+        city = get_node_value(item, 'location/city', True)
+        street = get_node_value(item, 'location/street', True)
+        if get_city_by_place(place) == '' and get_city_by_place(street) == '' and city != '':
+            print('Fix this:[{}]'.format(place))
+
+        info['address-locality'] = city
+        info['address-street'] = street
+
+        info['photo'] = [photo.text for photo in item.xpath('files/image')]
+
+        office = OFFICES[agent_phone]['office']
+        lot_number = get_lot_number(ad_id)
+        info['note'] = "{}\nПри звонке в {} укажите лот: {}".format(description, office, lot_number)
+
+        return info, ad_id, description
+
+    except EmptyRequiredFieldException as e:
+        print(e)
         return
 
-    info = dict()
 
-    ad_id = get_node_value(item, 'id')
+def from_bn_flat(item, sell=True):
+    try:
+        info, ad_id, description = from_bn(item, sell)
 
-    info['ad_id'] = gen_new_id(ad_id)
+        if is_block(description):
+            print('Blocked: [{}]'.format(description))
+            return
 
-    offer_type = get_node_value(item, 'type')
-    if offer_type == 'комната':
-        rooms_num = int(get_node_value(item, 'rooms-offer'))
-        info['rooms_num'] = 0
-    if offer_type == 'квартира':
-        rooms_num = int(get_node_value(item, 'rooms-total'))
+        rooms_num = int(get_node_value(item, 'rooms-total'), True)
         info['rooms_num'] = rooms_num
 
-    area_living = get_node_value(item, 'living/value')
-    info['area-living'] = area_living
-    info['area-kitchen'] = get_node_value(item, 'kitchen/value')
-    info['area-total'] = get_node_value(item, 'total/value')
-    if area_living and rooms_num:
-        info['area-rooms'] = get_rooms_areas(rooms_num, float(area_living))
-    else:
-        print('Fix this (area living is empty) for advert id: [{}]'.format(ad_id))
-
-    if offer_type == 'дом':
-        info['area-living'] = info['area-total']
-        info['area-region'] = get_node_value(item, 'lot/value')
-        building_year = get_node_value(item, 'building/year')
-        if building_year:
-            info['options_year'] = building_year
-
-    price = int(get_node_value(item, 'price/value'))
-    if get_office_suffix(ad_id) != '*':
-        if price * 0.025 < 10000:
-            price -= price * 0.025
+        area_living = get_node_value(item, 'living/value')
+        info['area-living'] = area_living
+        info['area-kitchen'] = get_node_value(item, 'kitchen/value')
+        info['area-total'] = get_node_value(item, 'total/value', True)
+        if area_living:
+            info['area-rooms'] = get_rooms_areas(rooms_num, float(area_living))
         else:
-            price -= 90123
-    info['price'] = price
+            print('Fix this (area living is empty) for advert id: [{}]'.format(ad_id))
 
-    info['floor-total'] = get_node_value(item, 'floors')
-    info['floor'] = get_node_value(item, 'floor')
-
-    agent_phone = get_node_value(item, 'agent/phone')
-    office = OFFICES[agent_phone]['office']
-    info['phone'] = OFFICES[agent_phone]['phone']
-
-    place = get_node_value(item, 'location/place')
-    city = get_node_value(item, 'location/city')
-    street = get_node_value(item, 'location/street')
-    if get_city_by_place(place) == '' and get_city_by_place(street) == '' and city != '':
-        print('Fix this:[{}]'.format(place))
-
-    info['address-locality'] = city
-    info['address-street'] = street
-
-    if sell and offer_type != 'дом':
         new_building_pattern = re.compile(r'\sсдача\s+(?:[1-4]-[\d]{4})')
         if new_building_pattern.search(description):
             info['options-object-type'] = 2
@@ -411,11 +430,45 @@ def from_bn(item, sell=True):
         else:
             info['options-object-type'] = 1
 
-    lot_number = get_lot_number(ad_id)
-    info['note'] = "{}\nПри звонке в {} укажите лот: {}".format(description, office, lot_number)
+    except EmptyRequiredFieldException as e:
+        print(e)
+        return
 
-    info['photo'] = [photo.text for photo in item.xpath('files/image')]
-    return info
+
+def from_bn_room(item, sell=True):
+    try:
+        info, ad_id, _ = from_bn(item, sell)
+        rooms_num = int(get_node_value(item, 'rooms-offer'), True)
+        info['rooms_num'] = 0
+        area_living = get_node_value(item, 'living/value')
+        info['area-living'] = area_living
+        info['area-kitchen'] = get_node_value(item, 'kitchen/value')
+        area_total = get_node_value(item, 'total/value', True)
+        info['area-total'] = area_total
+        if area_living:
+            info['area-rooms'] = get_rooms_areas(rooms_num, float(area_living))
+        else:
+            print('Fix this (area living is empty) for advert id: [{}]'.format(ad_id))
+
+        info['options-object-type'] = 1
+
+    except EmptyRequiredFieldException as e:
+        print(e)
+        return
+
+
+def from_bn_house(item, sell=True):
+    try:
+        info, ad_id, _ = from_bn(item, sell)
+        info['area-living'] = get_node_value(item, 'total/value', True)
+        info['area-region'] = get_node_value(item, 'lot/value', True)
+        building_year = get_node_value(item, 'building/year')
+        if building_year:
+            info['options_year'] = building_year
+
+    except EmptyRequiredFieldException as e:
+        print(e)
+        return
 
 
 # doc = etree.parse('format_new.xml')
@@ -425,7 +478,7 @@ objects = doc.xpath('bn-object')
 sales = [o for o in objects
          if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text() = "продажа"]')]
 for sale in sales:
-    print(from_bn(sale))
+    print(from_bn_flat(sale))
 rents = [o for o in objects
          if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text()="аренда"]')]
 # print(len(rents))
