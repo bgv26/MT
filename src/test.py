@@ -1,6 +1,5 @@
 import re
 from enum import Enum
-
 from lxml import etree
 
 # definitions
@@ -325,7 +324,7 @@ def get_rooms_areas(rooms, area):
     # split living area to room's areas in fixed PROPORTIONS
     areas = [round(area * room / 100, 1) for room in PROPORTIONS[rooms - 1][:-1]]
     areas.append(round(area - sum(areas), 1))
-    return '+'.join(map(str, areas))
+    return ' '.join(map(str, areas))
 
 
 def get_city_by_place(text):
@@ -360,7 +359,7 @@ def from_bn(item, sell=True):
     if offer_type == 'комната':
         rooms_num = int(get_node_value(item, 'rooms-offer'))
         info['rooms_num'] = 0
-    else:
+    if offer_type == 'квартира':
         rooms_num = int(get_node_value(item, 'rooms-total'))
         info['rooms_num'] = rooms_num
 
@@ -372,6 +371,13 @@ def from_bn(item, sell=True):
         info['area-rooms'] = get_rooms_areas(rooms_num, float(area_living))
     else:
         print('Fix this (area living is empty) for advert id: [{}]'.format(ad_id))
+
+    if offer_type == 'дом':
+        info['area-living'] = info['area-total']
+        info['area-region'] = get_node_value(item, 'lot/value')
+        building_year = get_node_value(item, 'building/year')
+        if building_year:
+            info['options_year'] = building_year
 
     price = int(get_node_value(item, 'price/value'))
     if get_office_suffix(ad_id) != '*':
