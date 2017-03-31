@@ -479,8 +479,8 @@ def from_bn_suburbians(item):
         raise EmptyResult()
 
 
-def to_cian_flats_and_rooms(root, data):
-    offer = etree.SubElement(root, 'offer')
+def to_cian_flats_and_rooms(root_node, data):
+    offer = etree.SubElement(root_node, 'offer')
     ad_id = etree.SubElement(offer, 'id')
     ad_id.text = data['ad_id']
     rooms_num = etree.SubElement(offer, 'rooms_num')
@@ -509,8 +509,8 @@ def to_cian_flats_and_rooms(root, data):
         photo.text = p
 
 
-def to_cian_suburbians(root, data):
-    offer = etree.SubElement(root, 'offer')
+def to_cian_suburbians(root_node, data):
+    offer = etree.SubElement(root_node, 'offer')
     ad_id = etree.SubElement(offer, 'id')
     ad_id.text = data['ad_id']
     deal_type = etree.SubElement(offer, 'deal_type')
@@ -527,12 +527,12 @@ def to_cian_suburbians(root, data):
     phone = etree.SubElement(offer, 'phone')
     phone.text = data['phone']
     etree.SubElement(offer, 'address', area='39', locality=data['address_locality'], street=data['address_street'])
-    if data['options_year']:
+    if 'options_year' in data and data['options_year']:
         etree.SubElement(offer, 'options', year=data['options_year'])
     for p in data['photo']:
         photo = etree.SubElement(offer, 'photo')
         photo.text = p
-    if data['floor_total']:
+    if 'floor_total' in data and data['floor_total']:
         floor_total = etree.SubElement(offer, 'floor_total')
         floor_total.text = data['floor_total']
     note = etree.SubElement(offer, 'note')
@@ -541,33 +541,44 @@ def to_cian_suburbians(root, data):
 
 doc = etree.parse('bncat.xml')
 objects = doc.xpath('bn-object')
-f = open('flats_rooms_sales.xml', 'w+', encoding='utf-8')
+f = open('cian_new.xml', 'w+', encoding='utf-8')
 flats_rooms_sales = [o for o in objects
                      if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text() = "продажа"]')]
-root = etree.Element('flats_for_sale')
-for sale in flats_rooms_sales:
-    try:
-        # f.write(sale.xpath('location/address').pop().text)
-        to_cian_flats_and_rooms(root, from_bn_flats_and_rooms(sale))
-    except EmptyResult:
-        pass
-f.write(etree.tostring(root, pretty_print=True,  xml_declaration=True, encoding='utf-8').decode('utf-8'))
+if len(flats_rooms_sales):
+    root = etree.Element('flats_for_sale')
+    for sale in flats_rooms_sales:
+        try:
+            to_cian_flats_and_rooms(root, from_bn_flats_and_rooms(sale))
+        except EmptyResult:
+            pass
+    f.write(etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8').decode('utf-8'))
 flats_rooms_rents = [o for o in objects
                      if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text()="аренда"]')]
-root = etree.Element('flats_rent')
-# for sale in flats_rooms_rents:
-#     print(from_bn_flats_and_rooms(sale, False))
-
+if len(flats_rooms_rents):
+    root = etree.Element('flats_rent')
+    for sale in flats_rooms_rents:
+        try:
+            to_cian_flats_and_rooms(root, from_bn_flats_and_rooms(sale))
+        except EmptyResult:
+            pass
+    if len(flats_rooms_sales):
+        f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
+    else:
+        f.write(etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8').decode('utf-8'))
 suburbians = [o for o in objects
               if o.xpath('type[text() = "дом" or text() = "коттедж" or text() = "участок"]')]
-# root = etree.Element('suburbian')
-# for sale in suburbians:
-#     try:
-#         print(from_bn_suburbians(sale))
-#     except EmptyResult:
-#         pass
-
-commerce = [o for o in objects
-            if o.xpath('type[not(text() = "квартира" or text() = "комната" or '
-                       'text() = "коттедж" or contains(text(), "дом"))]')]
+if len(suburbians):
+    root = etree.Element('suburbian')
+    for sale in suburbians:
+        try:
+            to_cian_suburbians(root, from_bn_suburbians(sale))
+        except EmptyResult:
+            pass
+    if len(flats_rooms_sales) or len(flats_rooms_rents):
+        f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
+    else:
+        f.write(etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8').decode('utf-8'))
+# commerce = [o for o in objects
+#             if o.xpath('type[not(text() = "квартира" or text() = "комната" or '
+#                        'text() = "коттедж" or contains(text(), "дом"))]')]
 f.close()
