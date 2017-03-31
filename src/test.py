@@ -541,16 +541,17 @@ def to_cian_suburbians(root, data):
 
 doc = etree.parse('bncat.xml')
 objects = doc.xpath('bn-object')
-f = open('flats_rooms_sales.xml', 'w')
+f = open('flats_rooms_sales.xml', 'w+', encoding='utf-8')
 flats_rooms_sales = [o for o in objects
                      if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text() = "продажа"]')]
 root = etree.Element('flats_for_sale')
 for sale in flats_rooms_sales:
     try:
+        # f.write(sale.xpath('location/address').pop().text)
         to_cian_flats_and_rooms(root, from_bn_flats_and_rooms(sale))
     except EmptyResult:
         pass
-f.write(etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8').decode('utf8'))
+f.write(etree.tostring(root, pretty_print=True,  xml_declaration=True, encoding='utf-8').decode('utf-8'))
 flats_rooms_rents = [o for o in objects
                      if o.xpath('type[text() = "квартира" or text() = "комната"] and action[text()="аренда"]')]
 root = etree.Element('flats_rent')
