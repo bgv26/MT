@@ -9,8 +9,8 @@ HOME_DIR_MT = r'/export/cian'
 HOME_DIR_NIRLAN = r'/export/n_cian'
 
 DIRECTORIES = (
-    r'C:\Devel\PyCharmProject\MT\src',
-    # r'D:\Devel\MT\src',
+    # r'C:\Devel\PyCharmProject\MT\src',
+    r'D:\Devel\MT\src',
     # os.path.join(HOME_DIR_MT, 'tem'),
     # os.path.join(HOME_DIR_MT, 'soc'),
     # os.path.join(HOME_DIR_MT, 'bud'),
@@ -24,12 +24,13 @@ DIRECTORIES = (
     # os.path.join(HOME_DIR_NIRLAN, 'zapad'),
 )
 
-IN_FILE = 'bncat_comnedv.xml'
+# IN_FILE = 'bncat_comnedv.xml'
+IN_FILE = 'bncat_comnedv_for_bn.xml'
 
 # OUT_FILE = 'cian_comnedv_new.xml'
-OUT_FILE = 'obj_types.txt'
+OUT_FILE = 'addresses.txt'
 
-LOG_FILE = '{}.log'.format(dt.today().strftime('%d %B %Y %H-%M-%S'))
+LOG_FILE = '{}-commerce.log'.format(dt.today().strftime('%d %B %Y %H-%M-%S'))
 
 ID_PREFIX = "1508"
 
@@ -183,24 +184,26 @@ for cat in DIRECTORIES:
         # types = set((o.xpath('type').pop().text for o in objects))
         # for t in types:
         #     f.write(t + '\n')
-        f.write('офисы\n')
-        o_s = [o for o in objects if o.xpath('type[text()="офисы"]')]
-        for i in o_s:
-            f.write("o: {}".format(i.xpath('description/print').pop().text) + '\n')
-        f.write('\nторговые помещения\n')
-        t_s = [o for o in objects if o.xpath('type[text()="торговые помещения"]')]
-        for i in t_s:
-            f.write("t: {}".format(i.xpath('description/print').pop().text) + '\n')
-        f.write('\nземельные участки\n')
-        zu_s = [o for o in objects if o.xpath('type[text()="земельные участки"]')]
-        for i in zu_s:
-            f.write("zu: {}".format(i.xpath('description/print').pop().text) + '\n')
-        f.write('\nпомещения для сферы услуг\n')
-        bu_s = [o for o in objects if o.xpath('type[text()="помещения для сферы услуг"]')]
-        for i in bu_s:
-            f.write("bu: {}".format(i.xpath('description/print').pop().text) + '\n')
-        f.write('\nпроизводственно-складские помещения\n')
-        wp_s = [o for o in objects if o.xpath('type[text()="производственно-складские помещения"]')]
-        for i in wp_s:
-            f.write("wp: {}".format(i.xpath('description/print').pop().text) + '\n')
-        f.write('\n')
+        # f.write('офисы\n')
+        # o_s = [o for o in objects if o.xpath('type[text()="офисы"]')]
+        # for i in o_s:
+        #     f.write("o: {}".format(i.xpath('description/print').pop().text) + '\n')
+        # f.write('\nторговые помещения\n')
+        # t_s = [o for o in objects if o.xpath('type[text()="торговые помещения"]')]
+        # for i in t_s:
+        #     f.write("t: {}".format(i.xpath('description/print').pop().text) + '\n')
+        # f.write('\nземельные участки\n')
+        # zu_s = [o for o in objects if o.xpath('type[text()="земельные участки"]')]
+        # for i in zu_s:
+        #     f.write("zu: {}".format(i.xpath('description/print').pop().text) + '\n')
+        # f.write('\nпомещения для сферы услуг\n')
+        # bu_s = [o for o in objects if o.xpath('type[text()="помещения для сферы услуг"]')]
+        # for i in bu_s:
+        #     f.write("bu: {}".format(i.xpath('description/print').pop().text) + '\n')
+        # f.write('\nпроизводственно-складские помещения\n')
+        # wp_s = [o for o in objects if o.xpath('type[text()="производственно-складские помещения"]')]
+        # for i in wp_s:
+        #     f.write("wp: {}".format(i.xpath('description/print').pop().text) + '\n')
+        # f.write('\n')
+        for o in objects:
+            f.write(o.xpath('location/address').pop().text + '\n')
