@@ -9,8 +9,8 @@ HOME_DIR_MT = r'/export/cian'
 HOME_DIR_NIRLAN = r'/export/n_cian'
 
 DIRECTORIES = (
-    r'C:\Devel\PyCharmProject\MT\src',
-    # r'D:\Devel\MT\src',
+    # r'C:\Devel\PyCharmProject\MT\src',
+    r'D:\Devel\MT\src',
     # os.path.join(HOME_DIR_MT, 'tem'),
     # os.path.join(HOME_DIR_MT, 'soc'),
     # os.path.join(HOME_DIR_MT, 'bud'),
@@ -25,6 +25,7 @@ DIRECTORIES = (
 )
 
 IN_FILE = 'bncat.xml'
+IN_FILE_COMMERCE = 'bncat_comnedv_for_bn.xml'
 
 OUT_FILE = 'cian_new.xml'
 
@@ -128,175 +129,160 @@ def is_mortgage(item):
         pass
 
 
-def from_bn(item):
-    description = get_node_value(item, 'description/full')
-    ad_id = get_node_value(item, 'id', True)
-
-    if is_block(description):
-        raise BlockedRecordException('Blocked: bad description "{}" in advert id [{}]'.format(description, ad_id))
-
-    info = dict()
-
-    info['ad_id'] = gen_new_id(ad_id)
-
-    info['price'] = str(int(get_node_value(item, 'price/value', True)) * 0.95)
-
-    agent_phone = get_node_value(item, 'agent/phone', True)
-    info['phone'] = OFFICES[agent_phone]['phone']
-
-    info['address_locality'] = get_node_value(item, 'location/city', True)
-    info['address_street'] = get_node_value(item, 'location/street', True)
-
-    info['photo'] = [photo.text for photo in item.xpath('files/image')]
-
-    office = OFFICES[agent_phone]['office']
-    lot_number = get_lot_number(ad_id)
-    info['note'] = "{}\nПри звонке в {} укажите лот: {}".format(description, office, lot_number)
-
-    return info, ad_id
-
-
-def from_bn_flats_and_rooms(item, log, sell=True):
+def convert(root_node, item, log):
     try:
-        info, ad_id = from_bn(item)
+        # common part
+        description = get_node_value(item, 'description/full')
+        ad_id = get_node_value(item, 'id', True)
 
-        object_type = get_node_value(item, 'type', True)
-        if object_type == 'квартира':
-            if sell:
-                info['options_mortgage'] = '1' if is_mortgage(item) else '0'
-            info['rooms_num'] = get_node_value(item, 'rooms-total', True)
-        else:
-            info['rooms_num'] = '0'
+        if is_block(description):
+            raise BlockedRecordException('Blocked: bad description "{}" in advert id [{}]'.format(description, ad_id))
 
-        info['floor_total'] = get_node_value(item, 'floors', True)
-        info['floor'] = get_node_value(item, 'floor', True)
+        obj_type = get_node_value(item, 'type')
+        action = get_node_value(item, 'action')
+        agent_phone = get_node_value(item, 'agent/phone', True)
 
-        info['area_living'] = get_node_value(item, 'living/value')
-        info['area_kitchen'] = get_node_value(item, 'kitchen/value')
-        info['area_total'] = get_node_value(item, 'total/value', True)
+        lot = etree.SubElement(root_node, 'object')
 
-        return info
+        # ExternalId - Id объявления
+        external_id = etree.SubElement(lot, 'ExternalId')
+        external_id.text = gen_new_id(ad_id)
+
+        # Description - Текст объявления
+        office = OFFICES[agent_phone]['office']
+        lot_number = get_lot_number(ad_id)
+        description = etree.SubElement(lot, 'Description')
+        description.text = "{}\nПри звонке в {} укажите лот: {}".format(description, office, lot_number)
+
+        # Address - Адрес объявления
+        address = etree.SubElement(lot, 'Address')
+        address.text = get_node_value(item, 'location/address', True)
+
+        # Phones - Телефон
+        phone_schema = etree.SubElement(etree.SubElement(lot, 'Phones'), 'PhoneSchema')
+        country_code = etree.SubElement(phone_schema, 'CountryCode')
+        country_code.text = '+7'
+        phone_number = etree.SubElement(phone_schema, 'Number')
+        phone_number.text = OFFICES[agent_phone]['phone']
+
+        # Photos - Фотографии объекта
+        photos = etree.SubElement(lot, 'Photos')
+        for photo in item.xpath('files/image'):
+            photo_schema = etree.SubElement(photos, 'PhotoSchema')
+            photo_url = etree.SubElement(photo_schema, 'FullUrl')
+            photo_url.text = photo.text
+            is_default = etree.SubElement(photo_schema, 'IsDefault')
+            is_default.text = 'true'
+
+        if obj_type == 'квартира':
+            if action == 'аренда':
+                # Category - Категория объявления (аренда квартиры)
+                category = etree.SubElement(lot, 'Category')
+                category.text = 'flatRent'
+
+                # FlatRoomsCount - Количество комнат
+                rooms_count = etree.SubElement(lot, 'FlatRoomsCount')
+                rooms_count.text = get_node_value(item, 'rooms-total', True)
+
+                # TotalArea - Общая площадь
+                total_area = etree.SubElement(lot, 'TotalArea')
+                total_area.text = get_node_value(item, 'total/value', True)
+
+                # FloorNumber - Этаж
+                floor_number = etree.SubElement(lot, 'FloorNumber')
+                floor_number.text = get_node_value(item, 'floor', True)
+
+                # LivingArea - Жилая площадь
+                area_living = get_node_value(item, 'living/value')
+                if area_living:
+                    living_area = etree.SubElement(lot, 'LivingArea')
+                    living_area.text = area_living
+
+                # KitchenArea - Площадь кухни
+                area_kitchen = get_node_value(item, 'kitchen/value')
+                if area_kitchen:
+                    kitchen_area = etree.SubElement(lot, 'KitchenArea')
+                    kitchen_area.text = area_kitchen
+
+                # FloorsCount - Количество этажей в здании
+                floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
+                floors_count.text = get_node_value(item, 'floors', True)
+
+                # Price - Цена
+                price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
+                price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
 
     except (EmptyRequiredFieldException, BlockedRecordException, EmptyResult) as e:
         log.write(str(e) + '\n')
         raise EmptyResult()
 
 
-def from_bn_suburbans(item, log):
-    try:
-        info, _ = from_bn(item)
-
-        deal_type = get_node_value(item, 'action', True)
-        info['deal_type'] = DEAL_TYPE[deal_type]
-        info['realty_type'] = 'K'
-
-        info['area_region'] = get_node_value(item, 'lot/value', True)
-        info['area_living'] = get_node_value(item, 'total/value', True)
-        info['floor_total'] = get_node_value(item, 'floors')
-        info['options_year'] = get_node_value(item, 'building/year')
-
-        return info
-
-    except (EmptyRequiredFieldException, BlockedRecordException, EmptyResult) as e:
-        log.write(str(e) + '\n')
-        raise EmptyResult()
-
-
-def to_cian_flats_and_rooms(root_node, data):
-    offer = etree.SubElement(root_node, 'offer')
-    ad_id = etree.SubElement(offer, 'id')
-    ad_id.text = data['ad_id']
-    rooms_num = etree.SubElement(offer, 'rooms_num')
-    rooms_num.text = data['rooms_num']
-    area = etree.SubElement(offer, 'area', total=data['area_total'])
-    if 'area_living' in data:
-        area.set('living', data['area_living'])
-    if 'area_kitchen' in data:
-        area.set('kitchen', data['area_kitchen'])
-    price = etree.SubElement(offer, 'price', currency='RUB')
-    price.text = data['price']
-    floor = etree.SubElement(offer, 'floor', total=data['floor_total'])
-    floor.text = data['floor']
-    phone = etree.SubElement(offer, 'phone')
-    phone.text = data['phone']
-    etree.SubElement(offer, 'address', area='39', locality=data['address_locality'], street=data['address_street'])
-    if 'options_mortgage' in data:
-        etree.SubElement(offer, 'options', ipoteka=data['options_mortgage'])
-    note = etree.SubElement(offer, 'note')
-    note.text = etree.CDATA(data['note'])
-    for p in data['photo']:
-        photo = etree.SubElement(offer, 'photo')
-        photo.text = p
+# def from_bn_suburbans(item, log):
+#     try:
+#         info, _ = from_bn(item)
+#
+#         deal_type = get_node_value(item, 'action', True)
+#         info['deal_type'] = DEAL_TYPE[deal_type]
+#         info['realty_type'] = 'K'
+#
+#         info['area_region'] = get_node_value(item, 'lot/value', True)
+#         info['area_living'] = get_node_value(item, 'total/value', True)
+#         info['floor_total'] = get_node_value(item, 'floors')
+#         info['options_year'] = get_node_value(item, 'building/year')
+#
+#         return info
+#
+#     except (EmptyRequiredFieldException, BlockedRecordException, EmptyResult) as e:
+#         log.write(str(e) + '\n')
+#         raise EmptyResult()
 
 
-def to_cian_suburbans(root_node, data):
-    offer = etree.SubElement(root_node, 'offer')
-    ad_id = etree.SubElement(offer, 'id')
-    ad_id.text = data['ad_id']
-    deal_type = etree.SubElement(offer, 'deal_type')
-    deal_type.text = data['deal_type']
-    realty_type = etree.SubElement(offer, 'realty_type')
-    realty_type.text = data['realty_type']
-    etree.SubElement(offer, 'area', region=data['area_region'], living=data['area_living'])
-    land_type = etree.SubElement(offer, 'land_type')
-    land_type.text = '2'
-    price = etree.SubElement(offer, 'price', currency='RUB')
-    price.text = data['price']
-    phone = etree.SubElement(offer, 'phone')
-    phone.text = data['phone']
-    etree.SubElement(offer, 'address', area='39', locality=data['address_locality'], street=data['address_street'])
-    if 'options_year' in data and data['options_year']:
-        etree.SubElement(offer, 'options', year=data['options_year'])
-    for p in data['photo']:
-        photo = etree.SubElement(offer, 'photo')
-        photo.text = p
-    if 'floor_total' in data and data['floor_total']:
-        floor_total = etree.SubElement(offer, 'floor_total')
-        floor_total.text = data['floor_total']
-    note = etree.SubElement(offer, 'note')
-    note.text = etree.CDATA(data['note'])
+# def to_cian_suburbans(root_node, data):
+#     offer = etree.SubElement(root_node, 'offer')
+#     ad_id = etree.SubElement(offer, 'id')
+#     ad_id.text = data['ad_id']
+#     deal_type = etree.SubElement(offer, 'deal_type')
+#     deal_type.text = data['deal_type']
+#     realty_type = etree.SubElement(offer, 'realty_type')
+#     realty_type.text = data['realty_type']
+#     etree.SubElement(offer, 'area', region=data['area_region'], living=data['area_living'])
+#     land_type = etree.SubElement(offer, 'land_type')
+#     land_type.text = '2'
+#     price = etree.SubElement(offer, 'price', currency='RUB')
+#     price.text = data['price']
+#     phone = etree.SubElement(offer, 'phone')
+#     phone.text = data['phone']
+#     etree.SubElement(offer, 'address', area='39', locality=data['address_locality'], street=data['address_street'])
+#     if 'options_year' in data and data['options_year']:
+#         etree.SubElement(offer, 'options', year=data['options_year'])
+#     for p in data['photo']:
+#         photo = etree.SubElement(offer, 'photo')
+#         photo.text = p
+#     if 'floor_total' in data and data['floor_total']:
+#         floor_total = etree.SubElement(offer, 'floor_total')
+#         floor_total.text = data['floor_total']
+#     note = etree.SubElement(offer, 'note')
+#     note.text = etree.CDATA(data['note'])
 
 
 for cat in DIRECTORIES:
-    doc = etree.parse(os.path.join(cat, IN_FILE))
-    with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f, open(os.path.join(cat, LOG_FILE), 'w+',
-                                                                              encoding='utf-8') as l:
+    with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f, \
+            open(os.path.join(cat, LOG_FILE), 'w+', encoding='utf-8') as l:
+        doc = etree.parse(os.path.join(cat, IN_FILE))
         objects = doc.xpath('bn-object')
-        flats_rooms_sales = [o for o in objects
-                             if o.xpath('type[text() = "квартира" or text() = "комната"]'
-                                        ' and action[text() = "продажа"]')]
-        if len(flats_rooms_sales):
-            root = etree.Element('flats_for_sale')
-            for sale in flats_rooms_sales:
-                try:
-                    to_cian_flats_and_rooms(root, from_bn_flats_and_rooms(sale, l))
-                except EmptyResult:
-                    pass
-            f.write(etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8').decode('utf-8'))
-        flats_rooms_rents = [o for o in objects
-                             if o.xpath('type[text() = "квартира" or text() = "комната"]'
-                                        ' and action[text()="аренда"]')]
-        if len(flats_rooms_rents):
-            root = etree.Element('flats_rent')
-            for sale in flats_rooms_rents:
-                try:
-                    to_cian_flats_and_rooms(root, from_bn_flats_and_rooms(sale, l, False))
-                except EmptyResult:
-                    pass
-            if len(flats_rooms_sales):
-                f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
-            else:
-                f.write(etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8').decode('utf-8'))
-        suburbans = [o for o in objects
-                     if o.xpath('type[text() = "дом" or text() = "коттедж"]')]
-        if len(suburbans):
-            root = etree.Element('suburbian')
-            for sale in suburbans:
-                try:
-                    to_cian_suburbans(root, from_bn_suburbans(sale, l))
-                except EmptyResult:
-                    pass
-            if len(flats_rooms_sales) or len(flats_rooms_rents):
-                f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
-            else:
-                f.write(etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8').decode('utf-8'))
+        root = etree.Element('feed')
+        version = etree.SubElement(root, 'feed_version')
+        version.text = '2'
+        for obj in objects:
+            try:
+                convert(root, obj, l)
+            except EmptyResult:
+                pass
+        doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
+        objects = doc.xpath('bn-object')
+        for obj in objects:
+            try:
+                convert(root, obj, l)
+            except EmptyResult:
+                pass
+        f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))

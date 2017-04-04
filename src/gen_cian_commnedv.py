@@ -139,8 +139,8 @@ def from_bn(item, log):
 
 
 def to_cian(root_node, data):
-    offer = etree.SubElement(root_node, 'offer')
-    ad_id = etree.SubElement(offer, 'id')
+    offer = etree.SubElement(root_node, 'object')
+    ad_id = etree.SubElement(offer, 'ExternalId')
     ad_id.text = data['ad_id']
     rooms_num = etree.SubElement(offer, 'rooms_num')
     rooms_num.text = data['rooms_num']
