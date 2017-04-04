@@ -370,6 +370,31 @@ def convert(root_node, item, log):
             price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
             price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
 
+        # Офис
+        if obj_type == 'офисы':
+            # Category - Категория объявления
+            category = etree.SubElement(lot, 'Category')
+            if action == 'аренда':
+                category.text = 'officeRent'
+            if action == 'продажа':
+                category.text = 'officeSale'
+
+            # TotalArea - Общая площадь
+            total_area = etree.SubElement(lot, 'TotalArea')
+            total_area.text = get_node_value(item, 'total/value', True)
+
+            # FloorNumber - Этаж
+            floor_number = etree.SubElement(lot, 'FloorNumber')
+            floor_number.text = get_node_value(item, 'floor', True)
+
+            # FloorsCount - Количество этажей в здании
+            floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
+            floors_count.text = get_node_value(item, 'floors', True)
+
+            # Price - Цена
+            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
+            price.text = get_node_value(item, 'price/value', True)
+
     except (EmptyRequiredFieldException, BlockedRecordException, EmptyResult) as e:
         log.write(str(e) + '\n')
         raise EmptyResult()
