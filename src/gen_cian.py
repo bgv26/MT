@@ -174,43 +174,91 @@ def convert(root_node, item, log):
             is_default = etree.SubElement(photo_schema, 'IsDefault')
             is_default.text = 'true'
 
+        # Квартира
         if obj_type == 'квартира':
+            # Category - Категория объявления (аренда квартиры)
+            category = etree.SubElement(lot, 'Category')
             if action == 'аренда':
-                # Category - Категория объявления (аренда квартиры)
-                category = etree.SubElement(lot, 'Category')
                 category.text = 'flatRent'
+            if action == 'продажа':
+                category.text = 'flatSale'
 
-                # FlatRoomsCount - Количество комнат
-                rooms_count = etree.SubElement(lot, 'FlatRoomsCount')
-                rooms_count.text = get_node_value(item, 'rooms-total', True)
+            # FlatRoomsCount - Количество комнат
+            rooms_count = etree.SubElement(lot, 'FlatRoomsCount')
+            rooms_count.text = get_node_value(item, 'rooms-total', True)
 
-                # TotalArea - Общая площадь
-                total_area = etree.SubElement(lot, 'TotalArea')
-                total_area.text = get_node_value(item, 'total/value', True)
+            # TotalArea - Общая площадь
+            total_area = etree.SubElement(lot, 'TotalArea')
+            total_area.text = get_node_value(item, 'total/value', True)
 
-                # FloorNumber - Этаж
-                floor_number = etree.SubElement(lot, 'FloorNumber')
-                floor_number.text = get_node_value(item, 'floor', True)
+            # FloorNumber - Этаж
+            floor_number = etree.SubElement(lot, 'FloorNumber')
+            floor_number.text = get_node_value(item, 'floor', True)
 
-                # LivingArea - Жилая площадь
-                area_living = get_node_value(item, 'living/value')
-                if area_living:
-                    living_area = etree.SubElement(lot, 'LivingArea')
-                    living_area.text = area_living
+            # LivingArea - Жилая площадь
+            area_living = get_node_value(item, 'living/value')
+            if area_living:
+                living_area = etree.SubElement(lot, 'LivingArea')
+                living_area.text = area_living
 
-                # KitchenArea - Площадь кухни
-                area_kitchen = get_node_value(item, 'kitchen/value')
-                if area_kitchen:
-                    kitchen_area = etree.SubElement(lot, 'KitchenArea')
-                    kitchen_area.text = area_kitchen
+            # KitchenArea - Площадь кухни
+            area_kitchen = get_node_value(item, 'kitchen/value')
+            if area_kitchen:
+                kitchen_area = etree.SubElement(lot, 'KitchenArea')
+                kitchen_area.text = area_kitchen
 
-                # FloorsCount - Количество этажей в здании
-                floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
-                floors_count.text = get_node_value(item, 'floors', True)
+            # FloorsCount - Количество этажей в здании
+            floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
+            floors_count.text = get_node_value(item, 'floors', True)
 
-                # Price - Цена
-                price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
-                price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
+            # Price - Цена
+            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
+            price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
+
+        # Комната
+        if obj_type == 'комната':
+            # Category - Категория объявления (аренда квартиры)
+            category = etree.SubElement(lot, 'Category')
+            if action == 'аренда':
+                category.text = 'roomRent'
+            if action == 'продажа':
+                category.text = 'roomSale'
+
+            # RoomsForSaleCount - Количество комнат в продажу/аренду
+            rooms_for_sale = etree.SubElement(lot, 'RoomsForSaleCount')
+            rooms_for_sale.text = get_node_value(item, 'rooms-offer', True)
+
+            # RoomArea - Площадь комнаты
+            area_living = get_node_value(item, 'living/value')
+            if area_living:
+                living_area = etree.SubElement(lot, 'RoomArea')
+                living_area.text = area_living
+
+            # RoomsCount - Количество комнат всего
+            rooms_count = etree.SubElement(lot, 'RoomsCount')
+            rooms_count.text = get_node_value(item, 'rooms-total', True)
+
+            # TotalArea - Общая площадь
+            total_area = etree.SubElement(lot, 'TotalArea')
+            total_area.text = get_node_value(item, 'total/value', True)
+
+            # FloorNumber - Этаж
+            floor_number = etree.SubElement(lot, 'FloorNumber')
+            floor_number.text = get_node_value(item, 'floor', True)
+
+            # KitchenArea - Площадь кухни
+            area_kitchen = get_node_value(item, 'kitchen/value')
+            if area_kitchen:
+                kitchen_area = etree.SubElement(lot, 'KitchenArea')
+                kitchen_area.text = area_kitchen
+
+            # FloorsCount - Количество этажей в здании
+            floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
+            floors_count.text = get_node_value(item, 'floors', True)
+
+            # Price - Цена
+            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
+            price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
 
     except (EmptyRequiredFieldException, BlockedRecordException, EmptyResult) as e:
         log.write(str(e) + '\n')
