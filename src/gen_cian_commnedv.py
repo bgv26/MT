@@ -5,9 +5,19 @@ from datetime import datetime as dt
 from lxml import etree
 
 # definitions
+HOME_DIR = r'/export/cian'
+
 DIRECTORIES = (
     r'C:\Devel\PyCharmProject\MT\src',
     # r'D:\Devel\MT\src',
+    # os.path.join(HOME_DIR, 'tem'),
+    # os.path.join(HOME_DIR, 'soc'),
+    # os.path.join(HOME_DIR, 'bud'),
+    # os.path.join(HOME_DIR, 'sev'),
+    # os.path.join(HOME_DIR, 'zap'),
+    # os.path.join(HOME_DIR, 'vos'),
+    # os.path.join(HOME_DIR, 'str'),
+    # os.path.join(HOME_DIR, 'bat'),
 )
 
 IN_FILE = 'bncat_comnedv.xml'
