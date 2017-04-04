@@ -176,7 +176,7 @@ def convert(root_node, item, log):
 
         # Квартира
         if obj_type == 'квартира':
-            # Category - Категория объявления (аренда квартиры)
+            # Category - Категория объявления
             category = etree.SubElement(lot, 'Category')
             if action == 'аренда':
                 category.text = 'flatRent'
@@ -217,7 +217,7 @@ def convert(root_node, item, log):
 
         # Комната
         if obj_type == 'комната':
-            # Category - Категория объявления (аренда квартиры)
+            # Category - Категория объявления
             category = etree.SubElement(lot, 'Category')
             if action == 'аренда':
                 category.text = 'roomRent'
@@ -260,57 +260,119 @@ def convert(root_node, item, log):
             price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
             price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
 
+        # Дом
+        if obj_type == 'дом':
+            # Category - Категория объявления
+            category = etree.SubElement(lot, 'Category')
+            if action == 'аренда':
+                category.text = 'houseRent'
+            if action == 'продажа':
+                category.text = 'houseSale'
+
+            # TotalArea - Общая площадь
+            total_area = etree.SubElement(lot, 'TotalArea')
+            total_area.text = get_node_value(item, 'total/value', True)
+
+            # Land - Информация об участке
+            land = etree.SubElement(lot, 'Land')
+            etree.SubElement(land, 'Area').text = get_node_value(item, 'lot/value', True)
+            etree.SubElement(land, 'AreaUnitType').text = 'sotka'
+
+            # Building - Информация о здании
+            floors_count = get_node_value(item, 'floors')
+            build_year = get_node_value(item, 'building/year')
+            if floors_count or build_year:
+                building = etree.SubElement(lot, 'Building')
+                if floors_count:
+                    etree.SubElement(building, 'FloorsCount').text = floors_count
+                if build_year:
+                    etree.SubElement(building, 'BuildYear').text = build_year
+
+            # Price - Цена
+            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
+            price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
+
+        # Коттедж
+        if obj_type == 'коттедж':
+            # Category - Категория объявления
+            category = etree.SubElement(lot, 'Category')
+            if action == 'аренда':
+                category.text = 'cottageRent'
+            if action == 'продажа':
+                category.text = 'cottageSale'
+
+            # TotalArea - Общая площадь
+            total_area = etree.SubElement(lot, 'TotalArea')
+            total_area.text = get_node_value(item, 'total/value', True)
+
+            # Land - Информация об участке
+            land = etree.SubElement(lot, 'Land')
+            etree.SubElement(land, 'Area').text = get_node_value(item, 'lot/value', True)
+            etree.SubElement(land, 'AreaUnitType').text = 'sotka'
+
+            # Building - Информация о здании
+            floors_count = get_node_value(item, 'floors')
+            build_year = get_node_value(item, 'building/year')
+            if floors_count or build_year:
+                building = etree.SubElement(lot, 'Building')
+                if floors_count:
+                    etree.SubElement(building, 'FloorsCount').text = floors_count
+                if build_year:
+                    etree.SubElement(building, 'BuildYear').text = build_year
+
+            # Price - Цена
+            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
+            price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
+
+        # Таунхаус
+        if obj_type == 'таунхаус':
+            # Category - Категория объявления
+            category = etree.SubElement(lot, 'Category')
+            if action == 'аренда':
+                category.text = 'townhouseRent'
+            if action == 'продажа':
+                category.text = 'townhouseSale'
+
+            # TotalArea - Общая площадь
+            total_area = etree.SubElement(lot, 'TotalArea')
+            total_area.text = get_node_value(item, 'total/value', True)
+
+            # Land - Информация об участке
+            land = etree.SubElement(lot, 'Land')
+            etree.SubElement(land, 'Area').text = get_node_value(item, 'lot/value', True)
+            etree.SubElement(land, 'AreaUnitType').text = 'sotka'
+
+            # Building - Информация о здании
+            floors_count = get_node_value(item, 'floors')
+            build_year = get_node_value(item, 'building/year')
+            if floors_count or build_year:
+                building = etree.SubElement(lot, 'Building')
+                if floors_count:
+                    etree.SubElement(building, 'FloorsCount').text = floors_count
+                if build_year:
+                    etree.SubElement(building, 'BuildYear').text = build_year
+
+            # Price - Цена
+            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
+            price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
+
+        # Участок
+        if obj_type == 'участок':
+            # Category - Категория объявления
+            etree.SubElement(lot, 'Category').text = 'landSale'
+
+            # Land - Информация об участке
+            land = etree.SubElement(lot, 'Land')
+            etree.SubElement(land, 'Area').text = get_node_value(item, 'lot/value', True)
+            etree.SubElement(land, 'AreaUnitType').text = 'sotka'
+
+            # Price - Цена
+            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
+            price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
+
     except (EmptyRequiredFieldException, BlockedRecordException, EmptyResult) as e:
         log.write(str(e) + '\n')
         raise EmptyResult()
-
-
-# def from_bn_suburbans(item, log):
-#     try:
-#         info, _ = from_bn(item)
-#
-#         deal_type = get_node_value(item, 'action', True)
-#         info['deal_type'] = DEAL_TYPE[deal_type]
-#         info['realty_type'] = 'K'
-#
-#         info['area_region'] = get_node_value(item, 'lot/value', True)
-#         info['area_living'] = get_node_value(item, 'total/value', True)
-#         info['floor_total'] = get_node_value(item, 'floors')
-#         info['options_year'] = get_node_value(item, 'building/year')
-#
-#         return info
-#
-#     except (EmptyRequiredFieldException, BlockedRecordException, EmptyResult) as e:
-#         log.write(str(e) + '\n')
-#         raise EmptyResult()
-
-
-# def to_cian_suburbans(root_node, data):
-#     offer = etree.SubElement(root_node, 'offer')
-#     ad_id = etree.SubElement(offer, 'id')
-#     ad_id.text = data['ad_id']
-#     deal_type = etree.SubElement(offer, 'deal_type')
-#     deal_type.text = data['deal_type']
-#     realty_type = etree.SubElement(offer, 'realty_type')
-#     realty_type.text = data['realty_type']
-#     etree.SubElement(offer, 'area', region=data['area_region'], living=data['area_living'])
-#     land_type = etree.SubElement(offer, 'land_type')
-#     land_type.text = '2'
-#     price = etree.SubElement(offer, 'price', currency='RUB')
-#     price.text = data['price']
-#     phone = etree.SubElement(offer, 'phone')
-#     phone.text = data['phone']
-#     etree.SubElement(offer, 'address', area='39', locality=data['address_locality'], street=data['address_street'])
-#     if 'options_year' in data and data['options_year']:
-#         etree.SubElement(offer, 'options', year=data['options_year'])
-#     for p in data['photo']:
-#         photo = etree.SubElement(offer, 'photo')
-#         photo.text = p
-#     if 'floor_total' in data and data['floor_total']:
-#         floor_total = etree.SubElement(offer, 'floor_total')
-#         floor_total.text = data['floor_total']
-#     note = etree.SubElement(offer, 'note')
-#     note.text = etree.CDATA(data['note'])
 
 
 for cat in DIRECTORIES:
