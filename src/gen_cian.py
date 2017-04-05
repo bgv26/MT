@@ -65,10 +65,10 @@ OFFICES = {
     '8(863)2-270-909': {'office': 'ДОНМТ офис Центральный 3', 'phone': '9286216057'},
     '8(863)200-67-67': {'office': 'ДОНМТ офис Западный', 'phone': '9298174480'},
     '8(863)2-300-909': {'office': 'ДОНМТ офис Северный', 'phone': '9885669794'},
-    '8(863)2-500-400': {'office': 'ДОНМТ офис Северный', 'phone': '9885669794'},
     '8(863)200-85-85': {'office': 'ДОНМТ офис Стройгородок', 'phone': '9034067095'},
     '8(863)300-24-00': {'office': 'ДОНМТ офис Восточный', 'phone': '9045033362'},
-    '8(863)2-417-423': {'office': 'ДОНМТ офис Батайск', 'phone': '9281879795'},
+    '8(863)2-500-400': {'office': 'ДОНМТ офис Батайск', 'phone': '9281879795'},
+    '8(863)250-27-27': {'office': 'ДОНМТ офис Коммерческая недвижимость', 'phone': '9081719005'},
 }
 
 SPECIALITIES = {
@@ -121,7 +121,7 @@ def get_node_value(parent, node, required=False):
         if required:
             raise EmptyRequiredFieldException(
                 'Blocked: empty required field ({}) in advert id [{}]'.format(node, ad_id))
-        EmptyResult.count += 1
+        # EmptyResult.count += 1
         return ''
 
 
