@@ -110,7 +110,7 @@ def get_node_value(parent, node, required=False, field_name=''):
             ad_id = get_node_value(parent, 'id', True)
             raise EmptyRequiredFieldException(
                 'Blocked: empty required field "{}" in advert id [{}].\n'.format(field_name, ad_id))
-        EmptyResult.count += 1
+        # EmptyResult.count += 1
         return ''
 
 
