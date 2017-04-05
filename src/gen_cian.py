@@ -101,7 +101,11 @@ class EmptyRequiredFieldException(Exception):
 
 
 class EmptyResult(Exception):
-    pass
+    count = 0
+
+
+class EmptyField:
+    count = 0
 
 
 def gen_new_id(offer_id):
@@ -117,7 +121,8 @@ def get_node_value(parent, node, required=False):
         if required:
             raise EmptyRequiredFieldException(
                 'Blocked: empty required field ({}) in advert id [{}]'.format(node, ad_id))
-        raise EmptyResult('Fix this: field {} in advert id: [{}] is  empty.'.format(node, ad_id))
+        EmptyResult.count += 1
+        return ''
 
 
 def is_block(text):
@@ -183,15 +188,17 @@ def is_mortgage(item):
 def convert(root_node, bn_lot, log):
     try:
         # common part
-        bn_description_full = get_node_value(bn_lot, 'description/full')
+        err_str = 'Fix this: field "{}" in advert id: [{}] is  empty.'
+
         bn_id = get_node_value(bn_lot, 'id', True)
+        bn_type = get_node_value(bn_lot, 'type', True)
+        bn_action = get_node_value(bn_lot, 'action', True)
+        bn_description_full = get_node_value(bn_lot, 'description/full', True)
 
         if is_block(bn_description_full):
             raise BlockedRecordException(
                 'Blocked: bad description "{}" in advert id [{}]'.format(bn_description_full, bn_id))
 
-        bn_type = get_node_value(bn_lot, 'type')
-        bn_action = get_node_value(bn_lot, 'action')
         bn_phone = get_node_value(bn_lot, 'agent/phone', True)
 
         if bn_phone not in OFFICES:
@@ -218,11 +225,16 @@ def convert(root_node, bn_lot, log):
         etree.SubElement(phone_schema, 'Number').text = OFFICES[bn_phone]['phone']
 
         # Photos - Фотографии объекта
-        photos = etree.SubElement(lot, 'Photos')
-        for photo in bn_lot.xpath('files/image'):
-            photo_schema = etree.SubElement(photos, 'PhotoSchema')
-            etree.SubElement(photo_schema, 'FullUrl').text = photo.text
-            etree.SubElement(photo_schema, 'IsDefault').text = 'true'
+        bn_photos = bn_lot.xpath('files/image')
+        if bn_photos:
+            photos = etree.SubElement(lot, 'Photos')
+            for photo in bn_photos:
+                photo_schema = etree.SubElement(photos, 'PhotoSchema')
+                etree.SubElement(photo_schema, 'FullUrl').text = photo.text
+                etree.SubElement(photo_schema, 'IsDefault').text = 'true'
+        else:
+            EmptyField.count += 1
+            log.write(err_str.format('photos', bn_id))
 
         # Квартира
         if bn_type == 'квартира':
@@ -242,11 +254,17 @@ def convert(root_node, bn_lot, log):
             bn_living_area = get_node_value(bn_lot, 'living/value')
             if bn_living_area:
                 etree.SubElement(lot, 'LivingArea').text = bn_living_area
+            else:
+                EmptyField.count += 1
+                log.write(err_str.format('living area', bn_id))
 
             # KitchenArea - Площадь кухни
             bn_kitchen_area = get_node_value(bn_lot, 'kitchen/value')
             if bn_kitchen_area:
                 etree.SubElement(lot, 'KitchenArea').text = bn_kitchen_area
+            else:
+                EmptyField.count += 1
+                log.write(err_str.format('kitchen area', bn_id))
 
             # FloorsCount - Количество этажей в здании
             etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
@@ -264,15 +282,23 @@ def convert(root_node, bn_lot, log):
             etree.SubElement(lot, 'Category').text = 'room' + ACTIONS[bn_action]
 
             # RoomsForSaleCount - Количество комнат в продажу/аренду
-            etree.SubElement(lot, 'RoomsForSaleCount').text = get_node_value(bn_lot, 'rooms-offer', True)
+            bn_rooms_offer = get_node_value(bn_lot, 'rooms-offer')
+            if bn_rooms_offer:
+                etree.SubElement(lot, 'RoomsForSaleCount').text = bn_rooms_offer
+            else:
+                EmptyField.count += 1
+                log.write(err_str.format('rooms offer', bn_id))
 
             # RoomArea - Площадь комнаты
-            bn_living_area = get_node_value(bn_lot, 'living/value')
-            if bn_living_area:
-                etree.SubElement(lot, 'RoomArea').text = bn_living_area
+            etree.SubElement(lot, 'RoomArea').text = get_node_value(bn_lot, 'living/value', True)
 
             # RoomsCount - Количество комнат всего
-            etree.SubElement(lot, 'RoomsCount').text = get_node_value(bn_lot, 'rooms-total', True)
+            bn_rooms_total = get_node_value(bn_lot, 'rooms-total')
+            if bn_rooms_total:
+                etree.SubElement(lot, 'RoomsCount').text = bn_rooms_total
+            else:
+                EmptyField.count += 1
+                log.write(err_str.format('rooms total', bn_id))
 
             # TotalArea - Общая площадь
             etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
@@ -284,6 +310,9 @@ def convert(root_node, bn_lot, log):
             bn_kitchen_area = get_node_value(bn_lot, 'kitchen/value')
             if bn_kitchen_area:
                 etree.SubElement(lot, 'KitchenArea').text = bn_kitchen_area
+            else:
+                EmptyField.count += 1
+                log.write(err_str.format('kitchen area', bn_id))
 
             # FloorsCount - Количество этажей в здании
             etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
@@ -313,8 +342,14 @@ def convert(root_node, bn_lot, log):
                 building = etree.SubElement(lot, 'Building')
                 if bn_floors:
                     etree.SubElement(building, 'FloorsCount').text = bn_floors
+                else:
+                    EmptyField.count += 1
+                    log.write(err_str.format('floors', bn_id))
                 if bn_build_year:
                     etree.SubElement(building, 'BuildYear').text = bn_build_year
+                else:
+                    EmptyField.count += 1
+                    log.write(err_str.format('building year', bn_id))
 
             # Price - Цена
             etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
@@ -340,8 +375,14 @@ def convert(root_node, bn_lot, log):
                 building = etree.SubElement(lot, 'Building')
                 if bn_floors:
                     etree.SubElement(building, 'FloorsCount').text = bn_floors
+                else:
+                    EmptyField.count += 1
+                    log.write(err_str.format('floors', bn_id))
                 if bn_build_year:
                     etree.SubElement(building, 'BuildYear').text = bn_build_year
+                else:
+                    EmptyField.count += 1
+                    log.write(err_str.format('building year', bn_id))
 
             # Price - Цена
             etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
@@ -367,8 +408,14 @@ def convert(root_node, bn_lot, log):
                 building = etree.SubElement(lot, 'Building')
                 if bn_floors:
                     etree.SubElement(building, 'FloorsCount').text = bn_floors
+                else:
+                    EmptyField.count += 1
+                    log.write(err_str.format('floors', bn_id))
                 if bn_build_year:
                     etree.SubElement(building, 'BuildYear').text = bn_build_year
+                else:
+                    EmptyField.count += 1
+                    log.write(err_str.format('building year', bn_id))
 
             # Price - Цена
             etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
@@ -447,7 +494,7 @@ def convert(root_node, bn_lot, log):
             etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
                 get_node_value(bn_lot, 'price/value', True)
 
-        bn_description_print = get_node_value(bn_lot, 'description/print')
+        bn_description_print = get_node_value(bn_lot, 'description/print', True)
 
         # Помещение свободного назначения
         if bn_type == 'помещения для сферы услуг':
@@ -512,8 +559,9 @@ def convert(root_node, bn_lot, log):
                 etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
                     get_node_value(bn_lot, 'price/value', True)
 
-    except (EmptyRequiredFieldException, BlockedRecordException, EmptyResult) as e:
+    except (EmptyRequiredFieldException, BlockedRecordException) as e:
         log.write(str(e) + '\n')
+        EmptyResult.count += 1
         raise EmptyResult()
 
 
@@ -523,6 +571,7 @@ for cat in DIRECTORIES:
         doc = etree.parse(os.path.join(cat, IN_FILE))
         start_time = dt.now()
         objects = doc.xpath('bn-object')
+        total = len(objects)
         l.write('+{}+\n'.format('-' * 78))
         l.write('|{:^78}|\n'.format('Start at: {}'.format(start_time.isoformat())))
         l.write('+{}+\n'.format('-' * 78))
@@ -536,6 +585,7 @@ for cat in DIRECTORIES:
                 pass
         doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
         objects = doc.xpath('bn-object')
+        total += len(objects)
         for obj in objects:
             try:
                 convert(root, obj, l)
@@ -543,7 +593,9 @@ for cat in DIRECTORIES:
                 pass
         f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
         current_time = dt.now()
+        conclusion = 'Parsed: {} offers. Blocked: {}. Must be corrected: {}'
         l.write('+{}+\n'.format('-' * 78))
         l.write('|{:^78}|\n'.format('Finish at: {}'.format(current_time.isoformat())))
         l.write('|{:^78}|\n'.format('Script work for: {} sec'.format((current_time - start_time) / 1000)))
+        l.write('|{:^78}|\n'.format(conclusion.format(total, EmptyResult.count, EmptyField.count)))
         l.write('+{}+\n'.format('-' * 78))
