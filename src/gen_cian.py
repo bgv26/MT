@@ -180,365 +180,337 @@ def is_mortgage(item):
         pass
 
 
-def convert(root_node, item, log):
+def convert(root_node, bn_lot, log):
     try:
         # common part
-        description = get_node_value(item, 'description/full')
-        ad_id = get_node_value(item, 'id', True)
+        bn_description_full = get_node_value(bn_lot, 'description/full')
+        bn_id = get_node_value(bn_lot, 'id', True)
 
-        if is_block(description):
-            raise BlockedRecordException('Blocked: bad description "{}" in advert id [{}]'.format(description, ad_id))
+        if is_block(bn_description_full):
+            raise BlockedRecordException(
+                'Blocked: bad description "{}" in advert id [{}]'.format(bn_description_full, bn_id))
 
-        obj_type = get_node_value(item, 'type')
-        action = get_node_value(item, 'action')
-        agent_phone = get_node_value(item, 'agent/phone', True)
+        bn_type = get_node_value(bn_lot, 'type')
+        bn_action = get_node_value(bn_lot, 'action')
+        bn_phone = get_node_value(bn_lot, 'agent/phone', True)
+
+        if bn_phone not in OFFICES:
+            raise BlockedRecordException(
+                'Blocked: unknown phone number "{}" in advert id [{}]'.format(bn_phone, bn_id))
 
         lot = etree.SubElement(root_node, 'object')
 
         # ExternalId - Id объявления
-        etree.SubElement(lot, 'ExternalId').text = gen_new_id(ad_id)
+        etree.SubElement(lot, 'ExternalId').text = gen_new_id(bn_id)
 
         # Description - Текст объявления
-        office = OFFICES[agent_phone]['office']
-        lot_number = get_lot_number(ad_id)
+        office = OFFICES[bn_phone]['office']
+        lot_number = get_lot_number(bn_id)
         etree.SubElement(lot, 'Description').text = \
-            "{}\nПри звонке в {} укажите лот: {}".format(description, office, lot_number)
+            "{}\nПри звонке в {} укажите лот: {}".format(bn_description_full, office, lot_number)
 
         # Address - Адрес объявления
-        etree.SubElement(lot, 'Address').text = get_node_value(item, 'location/address', True)
+        etree.SubElement(lot, 'Address').text = get_node_value(bn_lot, 'location/address', True)
 
         # Phones - Телефон
         phone_schema = etree.SubElement(etree.SubElement(lot, 'Phones'), 'PhoneSchema')
         etree.SubElement(phone_schema, 'CountryCode').text = '+7'
-        etree.SubElement(phone_schema, 'Number').text = OFFICES[agent_phone]['phone']
+        etree.SubElement(phone_schema, 'Number').text = OFFICES[bn_phone]['phone']
 
         # Photos - Фотографии объекта
         photos = etree.SubElement(lot, 'Photos')
-        for photo in item.xpath('files/image'):
+        for photo in bn_lot.xpath('files/image'):
             photo_schema = etree.SubElement(photos, 'PhotoSchema')
             etree.SubElement(photo_schema, 'FullUrl').text = photo.text
             etree.SubElement(photo_schema, 'IsDefault').text = 'true'
 
         # Квартира
-        if obj_type == 'квартира':
+        if bn_type == 'квартира':
             # Category - Категория объявления
-            etree.SubElement(lot, 'Category').text = 'flat' + ACTIONS[action]
+            etree.SubElement(lot, 'Category').text = 'flat' + ACTIONS[bn_action]
 
             # FlatRoomsCount - Количество комнат
-            etree.SubElement(lot, 'FlatRoomsCount').text = get_node_value(item, 'rooms-total', True)
+            etree.SubElement(lot, 'FlatRoomsCount').text = get_node_value(bn_lot, 'rooms-total', True)
 
             # TotalArea - Общая площадь
-            etree.SubElement(lot, 'TotalArea').text = get_node_value(item, 'total/value', True)
+            etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
             # FloorNumber - Этаж
-            etree.SubElement(lot, 'FloorNumber').text = get_node_value(item, 'floor', True)
+            etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
             # LivingArea - Жилая площадь
-            living_area = get_node_value(item, 'living/value')
-            if living_area:
-                etree.SubElement(lot, 'LivingArea').text = living_area
+            bn_living_area = get_node_value(bn_lot, 'living/value')
+            if bn_living_area:
+                etree.SubElement(lot, 'LivingArea').text = bn_living_area
 
             # KitchenArea - Площадь кухни
-            kitchen_area = get_node_value(item, 'kitchen/value')
-            if kitchen_area:
-                etree.SubElement(lot, 'KitchenArea').text = kitchen_area
+            bn_kitchen_area = get_node_value(bn_lot, 'kitchen/value')
+            if bn_kitchen_area:
+                etree.SubElement(lot, 'KitchenArea').text = bn_kitchen_area
 
             # FloorsCount - Количество этажей в здании
             etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
-                get_node_value(item, 'floors', True)
+                get_node_value(bn_lot, 'floors', True)
 
             # Price - Цена
             bargain = etree.SubElement(lot, 'BargainTerms')
-            etree.SubElement(bargain, 'Price').text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
-            if action == 'продажа':
-                etree.SubElement(bargain, 'MortgageAllowed').text = str(is_mortgage(item)).lower()
+            etree.SubElement(bargain, 'Price').text = str(int(get_node_value(bn_lot, 'price/value', True)) * 0.95)
+            if bn_action == 'продажа':
+                etree.SubElement(bargain, 'MortgageAllowed').text = str(is_mortgage(bn_lot)).lower()
 
         # Комната
-        if obj_type == 'комната':
+        if bn_type == 'комната':
             # Category - Категория объявления
-            etree.SubElement(lot, 'Category').text = 'room' + ACTIONS[action]
+            etree.SubElement(lot, 'Category').text = 'room' + ACTIONS[bn_action]
 
             # RoomsForSaleCount - Количество комнат в продажу/аренду
-            etree.SubElement(lot, 'RoomsForSaleCount').text = get_node_value(item, 'rooms-offer', True)
+            etree.SubElement(lot, 'RoomsForSaleCount').text = get_node_value(bn_lot, 'rooms-offer', True)
 
             # RoomArea - Площадь комнаты
-            living_area = get_node_value(item, 'living/value')
-            if living_area:
-                etree.SubElement(lot, 'RoomArea').text = living_area
+            bn_living_area = get_node_value(bn_lot, 'living/value')
+            if bn_living_area:
+                etree.SubElement(lot, 'RoomArea').text = bn_living_area
 
             # RoomsCount - Количество комнат всего
-            etree.SubElement(lot, 'RoomsCount').text = get_node_value(item, 'rooms-total', True)
+            etree.SubElement(lot, 'RoomsCount').text = get_node_value(bn_lot, 'rooms-total', True)
 
             # TotalArea - Общая площадь
-            etree.SubElement(lot, 'TotalArea').text = get_node_value(item, 'total/value', True)
+            etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
             # FloorNumber - Этаж
-            etree.SubElement(lot, 'FloorNumber').text = get_node_value(item, 'floor', True)
+            etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
             # KitchenArea - Площадь кухни
-            kitchen_area = get_node_value(item, 'kitchen/value')
-            if kitchen_area:
-                etree.SubElement(lot, 'KitchenArea').text = kitchen_area
+            bn_kitchen_area = get_node_value(bn_lot, 'kitchen/value')
+            if bn_kitchen_area:
+                etree.SubElement(lot, 'KitchenArea').text = bn_kitchen_area
 
             # FloorsCount - Количество этажей в здании
             etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
-                get_node_value(item, 'floors', True)
+                get_node_value(bn_lot, 'floors', True)
 
             # Price - Цена
             etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
-                str(int(get_node_value(item, 'price/value', True)) * 0.95)
+                str(int(get_node_value(bn_lot, 'price/value', True)) * 0.95)
 
         # Дом
-        if obj_type == 'дом':
+        if bn_type == 'дом':
             # Category - Категория объявления
-            etree.SubElement(lot, 'Category').text = 'house' + ACTIONS[action]
+            etree.SubElement(lot, 'Category').text = 'house' + ACTIONS[bn_action]
 
             # TotalArea - Общая площадь
-            etree.SubElement(lot, 'TotalArea').text = get_node_value(item, 'total/value', True)
+            etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
             # Land - Информация об участке
             land = etree.SubElement(lot, 'Land')
-            etree.SubElement(land, 'Area').text = get_node_value(item, 'lot/value', True)
+            etree.SubElement(land, 'Area').text = get_node_value(bn_lot, 'lot/value', True)
             etree.SubElement(land, 'AreaUnitType').text = 'sotka'
 
             # Building - Информация о здании
-            floors_count = get_node_value(item, 'floors')
-            build_year = get_node_value(item, 'building/year')
-            if floors_count or build_year:
+            bn_floors = get_node_value(bn_lot, 'floors')
+            bn_build_year = get_node_value(bn_lot, 'building/year')
+            if bn_floors or bn_build_year:
                 building = etree.SubElement(lot, 'Building')
-                if floors_count:
-                    etree.SubElement(building, 'FloorsCount').text = floors_count
-                if build_year:
-                    etree.SubElement(building, 'BuildYear').text = build_year
+                if bn_floors:
+                    etree.SubElement(building, 'FloorsCount').text = bn_floors
+                if bn_build_year:
+                    etree.SubElement(building, 'BuildYear').text = bn_build_year
 
             # Price - Цена
             etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
-                str(int(get_node_value(item, 'price/value', True)) * 0.95)
+                str(int(get_node_value(bn_lot, 'price/value', True)) * 0.95)
 
         # Коттедж
-        if obj_type == 'коттедж':
+        if bn_type == 'коттедж':
             # Category - Категория объявления
-            etree.SubElement(lot, 'Category').text = 'cottage' + ACTIONS[action]
+            etree.SubElement(lot, 'Category').text = 'cottage' + ACTIONS[bn_action]
 
             # TotalArea - Общая площадь
-            etree.SubElement(lot, 'TotalArea').text = get_node_value(item, 'total/value', True)
+            etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
             # Land - Информация об участке
             land = etree.SubElement(lot, 'Land')
-            etree.SubElement(land, 'Area').text = get_node_value(item, 'lot/value', True)
+            etree.SubElement(land, 'Area').text = get_node_value(bn_lot, 'lot/value', True)
             etree.SubElement(land, 'AreaUnitType').text = 'sotka'
 
             # Building - Информация о здании
-            floors_count = get_node_value(item, 'floors')
-            build_year = get_node_value(item, 'building/year')
-            if floors_count or build_year:
+            bn_floors = get_node_value(bn_lot, 'floors')
+            bn_build_year = get_node_value(bn_lot, 'building/year')
+            if bn_floors or bn_build_year:
                 building = etree.SubElement(lot, 'Building')
-                if floors_count:
-                    etree.SubElement(building, 'FloorsCount').text = floors_count
-                if build_year:
-                    etree.SubElement(building, 'BuildYear').text = build_year
+                if bn_floors:
+                    etree.SubElement(building, 'FloorsCount').text = bn_floors
+                if bn_build_year:
+                    etree.SubElement(building, 'BuildYear').text = bn_build_year
 
             # Price - Цена
             etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
-                str(int(get_node_value(item, 'price/value', True)) * 0.95)
+                str(int(get_node_value(bn_lot, 'price/value', True)) * 0.95)
 
         # Таунхаус
-        if obj_type == 'таунхаус':
+        if bn_type == 'таунхаус':
             # Category - Категория объявления
-            etree.SubElement(lot, 'Category').text = 'townhouse' + ACTIONS[action]
+            etree.SubElement(lot, 'Category').text = 'townhouse' + ACTIONS[bn_action]
 
             # TotalArea - Общая площадь
-            etree.SubElement(lot, 'TotalArea').text = get_node_value(item, 'total/value', True)
+            etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
             # Land - Информация об участке
             land = etree.SubElement(lot, 'Land')
-            etree.SubElement(land, 'Area').text = get_node_value(item, 'lot/value', True)
+            etree.SubElement(land, 'Area').text = get_node_value(bn_lot, 'lot/value', True)
             etree.SubElement(land, 'AreaUnitType').text = 'sotka'
 
             # Building - Информация о здании
-            floors_count = get_node_value(item, 'floors')
-            build_year = get_node_value(item, 'building/year')
-            if floors_count or build_year:
+            bn_floors = get_node_value(bn_lot, 'floors')
+            bn_build_year = get_node_value(bn_lot, 'building/year')
+            if bn_floors or bn_build_year:
                 building = etree.SubElement(lot, 'Building')
-                if floors_count:
-                    etree.SubElement(building, 'FloorsCount').text = floors_count
-                if build_year:
-                    etree.SubElement(building, 'BuildYear').text = build_year
+                if bn_floors:
+                    etree.SubElement(building, 'FloorsCount').text = bn_floors
+                if bn_build_year:
+                    etree.SubElement(building, 'BuildYear').text = bn_build_year
 
             # Price - Цена
             etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
-                str(int(get_node_value(item, 'price/value', True)) * 0.95)
+                str(int(get_node_value(bn_lot, 'price/value', True)) * 0.95)
 
         # Участок
-        if obj_type == 'участок':
+        if bn_type == 'участок':
             # Category - Категория объявления
             etree.SubElement(lot, 'Category').text = 'landSale'
 
             # Land - Информация об участке
             land = etree.SubElement(lot, 'Land')
-            etree.SubElement(land, 'Area').text = get_node_value(item, 'lot/value', True)
+            etree.SubElement(land, 'Area').text = get_node_value(bn_lot, 'lot/value', True)
             etree.SubElement(land, 'AreaUnitType').text = 'sotka'
 
             # Price - Цена
             price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
-            price.text = str(int(get_node_value(item, 'price/value', True)) * 0.95)
+            price.text = str(int(get_node_value(bn_lot, 'price/value', True)) * 0.95)
 
         # Офис
-        if obj_type == 'офисы':
+        if bn_type == 'офисы':
             # Category - Категория объявления
-            category = etree.SubElement(lot, 'Category')
-            if action == 'аренда':
-                category.text = 'officeRent'
-            if action == 'продажа':
-                category.text = 'officeSale'
+            etree.SubElement(lot, 'Category').text = 'office' + ACTIONS[bn_action]
 
             # TotalArea - Общая площадь
-            total_area = etree.SubElement(lot, 'TotalArea')
-            total_area.text = get_node_value(item, 'total/value', True)
+            etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
             # FloorNumber - Этаж
-            floor_number = etree.SubElement(lot, 'FloorNumber')
-            floor_number.text = get_node_value(item, 'floor', True)
+            etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
             # FloorsCount - Количество этажей в здании
-            floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
-            floors_count.text = get_node_value(item, 'floors', True)
+            etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
+                get_node_value(bn_lot, 'floors', True)
 
             # Price - Цена
-            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
-            price.text = get_node_value(item, 'price/value', True)
+            etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
+                get_node_value(bn_lot, 'price/value', True)
 
         # Торговая площадь
-        if obj_type == 'торговые помещения':
+        if bn_type == 'торговые помещения':
             # Category - Категория объявления
-            category = etree.SubElement(lot, 'Category')
-            if action == 'аренда':
-                category.text = 'shoppingAreaRent'
-            if action == 'продажа':
-                category.text = 'shoppingAreaSale'
+            etree.SubElement(lot, 'Category').text = 'shoppingArea' + ACTIONS[bn_action]
 
             # TotalArea - Общая площадь
-            total_area = etree.SubElement(lot, 'TotalArea')
-            total_area.text = get_node_value(item, 'total/value', True)
+            etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
             # FloorNumber - Этаж
-            floor_number = etree.SubElement(lot, 'FloorNumber')
-            floor_number.text = get_node_value(item, 'floor', True)
+            etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
             # FloorsCount - Количество этажей в здании
-            floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
-            floors_count.text = get_node_value(item, 'floors', True)
+            etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
+                get_node_value(bn_lot, 'floors', True)
 
             # Price - Цена
-            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
-            price.text = get_node_value(item, 'price/value', True)
+            etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
+                get_node_value(bn_lot, 'price/value', True)
 
         # Коммерческая земля
-        if obj_type == 'земельные участки':
+        if bn_type == 'земельные участки':
             # Category - Категория объявления
-            category = etree.SubElement(lot, 'Category')
-            if action == 'аренда':
-                category.text = 'commercialLandRent'
-            if action == 'продажа':
-                category.text = 'commercialLandSale'
+            etree.SubElement(lot, 'Category').text = 'commercialLand' + ACTIONS[bn_action]
 
             # Land - Информация об участке
             land = etree.SubElement(lot, 'Land')
-            etree.SubElement(land, 'Area').text = get_node_value(item, 'lot/value', True)
+            etree.SubElement(land, 'Area').text = get_node_value(bn_lot, 'lot/value', True)
             etree.SubElement(land, 'AreaUnitType').text = 'sotka'
-            if 'поселений' in description:
+            if 'поселений' in bn_description_full:
                 status = 'settlements'
-            elif 'с/х назн.' in description:
+            elif 'с/х назн.' in bn_description_full:
                 status = 'forAgriculturalPurposes'
             else:
                 status = 'industryTransportCommunications'
             etree.SubElement(land, 'Status').text = status
 
             # Price - Цена
-            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
-            price.text = get_node_value(item, 'price/value', True)
+            etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
+                get_node_value(bn_lot, 'price/value', True)
 
-        short_description = get_node_value(item, 'description/print')
+        bn_description_print = get_node_value(bn_lot, 'description/print')
 
         # Помещение свободного назначения
-        if obj_type == 'помещения для сферы услуг':
+        if bn_type == 'помещения для сферы услуг':
             # Category - Категория объявления
-            category = etree.SubElement(lot, 'Category')
-            if action == 'аренда':
-                category.text = 'freeAppointmentObjectRent'
-            if action == 'продажа':
-                category.text = 'freeAppointmentObjectSale'
+            etree.SubElement(lot, 'Category').text = 'freeAppointmentObject' + ACTIONS[bn_action]
 
             # TotalArea - Общая площадь
-            total_area = etree.SubElement(lot, 'TotalArea')
-            total_area.text = get_node_value(item, 'total/value', True)
+            etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
             # FloorNumber - Этаж
-            floor_number = etree.SubElement(lot, 'FloorNumber')
-            floor_number.text = get_node_value(item, 'floor', True)
+            etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
             # Specialty - Возможное назначение
             speciality = etree.SubElement(lot, 'Specialty')
-            etree.SubElement(etree.SubElement(speciality, 'Types'), 'String').text = get_speciality(short_description)
+            etree.SubElement(etree.SubElement(speciality, 'Types'), 'String').text = get_speciality(
+                bn_description_print)
 
             # FloorsCount - Количество этажей в здании
-            floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
-            floors_count.text = get_node_value(item, 'floors', True)
+            etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
+                get_node_value(bn_lot, 'floors', True)
 
             # Price - Цена
-            price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
-            price.text = get_node_value(item, 'price/value', True)
+            etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
+                get_node_value(bn_lot, 'price/value', True)
 
-        if obj_type == 'производственно-складские помещения':
+        if bn_type == 'производственно-складские помещения':
             # Склад
-            if 'склад' in short_description:
+            if 'склад' in bn_description_print:
                 # Category - Категория объявления
-                category = etree.SubElement(lot, 'Category')
-                if action == 'аренда':
-                    category.text = 'warehouseRent'
-                if action == 'продажа':
-                    category.text = 'warehouseSale'
+                etree.SubElement(lot, 'Category').text = 'warehouse' + ACTIONS[bn_action]
 
                 # TotalArea - Общая площадь
-                total_area = etree.SubElement(lot, 'TotalArea')
-                total_area.text = get_node_value(item, 'total/value', True)
+                etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
                 # FloorNumber - Этаж
-                floor_number = etree.SubElement(lot, 'FloorNumber')
-                floor_number.text = get_node_value(item, 'floor', True)
+                etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
                 # FloorsCount - Количество этажей в здании
-                floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
-                floors_count.text = get_node_value(item, 'floors', True)
+                etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
+                    get_node_value(bn_lot, 'floors', True)
 
                 # Price - Цена
-                price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
-                price.text = get_node_value(item, 'price/value', True)
+                etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
+                    get_node_value(bn_lot, 'price/value', True)
 
             # Производство
-            if 'производство' in short_description:
+            if 'производство' in bn_description_print:
                 # Category - Категория объявления
-                category = etree.SubElement(lot, 'Category')
-                if action == 'аренда':
-                    category.text = 'industryRent'
-                if action == 'продажа':
-                    category.text = 'industrySale'
+                etree.SubElement(lot, 'Category').text = 'industry' + ACTIONS[bn_action]
 
                 # TotalArea - Общая площадь
-                total_area = etree.SubElement(lot, 'TotalArea')
-                total_area.text = get_node_value(item, 'total/value', True)
+                etree.SubElement(lot, 'TotalArea').text = get_node_value(bn_lot, 'total/value', True)
 
                 # FloorNumber - Этаж
-                floor_number = etree.SubElement(lot, 'FloorNumber')
-                floor_number.text = get_node_value(item, 'floor', True)
+                etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
                 # FloorsCount - Количество этажей в здании
-                floors_count = etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount')
-                floors_count.text = get_node_value(item, 'floors', True)
+                etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
+                    get_node_value(bn_lot, 'floors', True)
 
                 # Price - Цена
-                price = etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price')
-                price.text = get_node_value(item, 'price/value', True)
+                etree.SubElement(etree.SubElement(lot, 'BargainTerms'), 'Price').text = \
+                    get_node_value(bn_lot, 'price/value', True)
 
     except (EmptyRequiredFieldException, BlockedRecordException, EmptyResult) as e:
         log.write(str(e) + '\n')
@@ -549,7 +521,11 @@ for cat in DIRECTORIES:
     with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f, \
             open(os.path.join(cat, LOG_FILE), 'w+', encoding='utf-8') as l:
         doc = etree.parse(os.path.join(cat, IN_FILE))
+        start_time = dt.now()
         objects = doc.xpath('bn-object')
+        l.write('+{}+\n'.format('-' * 78))
+        l.write('|{:^78}|\n'.format('Start at: {}'.format(start_time.isoformat())))
+        l.write('+{}+\n'.format('-' * 78))
         root = etree.Element('feed')
         version = etree.SubElement(root, 'feed_version')
         version.text = '2'
@@ -566,3 +542,8 @@ for cat in DIRECTORIES:
             except EmptyResult:
                 pass
         f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
+        current_time = dt.now()
+        l.write('+{}+\n'.format('-' * 78))
+        l.write('|{:^78}|\n'.format('Finish at: {}'.format(current_time.isoformat())))
+        l.write('|{:^78}|\n'.format('Script work for: {} sec'.format((current_time - start_time) / 1000)))
+        l.write('+{}+\n'.format('-' * 78))
