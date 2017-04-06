@@ -377,7 +377,7 @@ def run():
             try:
                 doc = etree.parse(os.path.join(cat, IN_FILE))
                 objects = doc.xpath('bn-object')
-            except OSError:
+            except IOError:
                 objects = []
 
             total = len(objects)
@@ -394,7 +394,7 @@ def run():
             try:
                 doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
                 objects = doc.xpath('bn-object')
-            except OSError:
+            except IOError:
                 objects = []
 
             total += len(objects)
@@ -405,8 +405,9 @@ def run():
                 except EmptyResult:
                     pass
 
-            with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f:
-                f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
+            if total:
+                with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f:
+                    f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
 
             exec_time = 'Script execution time: {} sec'
             conclusion = 'Totally parsed: {} offers. Blocked: {}. Must be corrected: {}'
