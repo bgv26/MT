@@ -4,8 +4,8 @@ import os
 from datetime import datetime as dt
 
 # definitions
-HOME_DIR_MT = r'/export/cian'
-HOME_DIR_NIRLAN = r'/export/n_cian'
+HOME_DIR_MT = r'/home/xml/export/cian'
+HOME_DIR_NIRLAN = r'/home/xml/export/n_cian'
 
 # Директории
 DIRECTORIES = (

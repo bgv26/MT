@@ -366,55 +366,58 @@ def convert(root_node, bn_lot, log):
         raise EmptyResult()
 
 
-for cat in DIRECTORIES:
-    with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f, \
-            open(os.path.join(cat, LOG_FILE), 'w+', encoding='utf-8') as l:
-
-        start_time = dt.now()
-        l.write('+{}+\n'.format('-' * 78))
-        l.write('|{:^78}|\n'.format('Start at: {}'.format(start_time.isoformat())))
-        l.write('+{}+\n'.format('-' * 78))
-
-        total = 0
-
+def run():
+    for cat in DIRECTORIES:
         try:
+            with open(os.path.join(cat, LOG_FILE), 'w+', encoding='utf-8') as l:
 
-            doc = etree.parse(os.path.join(cat, IN_FILE))
-            objects = doc.xpath('bn-object')
+                start_time = dt.now()
+                l.write('+{}+\n'.format('-' * 78))
+                l.write('|{:^78}|\n'.format('Start at: {}'.format(start_time.isoformat())))
+                l.write('+{}+\n'.format('-' * 78))
 
-            total = len(objects)
+                total = 0
 
-            root = etree.Element('feed')
-            version = etree.SubElement(root, 'feed_version')
-            version.text = '2'
-            for obj in objects:
-                try:
-                    convert(root, obj, l)
-                except EmptyResult:
-                    pass
+                doc = etree.parse(os.path.join(cat, IN_FILE))
+                objects = doc.xpath('bn-object')
 
-            doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
-            objects = doc.xpath('bn-object')
+                total = len(objects)
 
-            total += len(objects)
+                root = etree.Element('feed')
+                version = etree.SubElement(root, 'feed_version')
+                version.text = '2'
+                for obj in objects:
+                    try:
+                        convert(root, obj, l)
+                    except EmptyResult:
+                        pass
 
-            for obj in objects:
-                try:
-                    convert(root, obj, l)
-                except EmptyResult:
-                    pass
+                doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
+                objects = doc.xpath('bn-object')
 
-            f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
+                total += len(objects)
 
+                for obj in objects:
+                    try:
+                        convert(root, obj, l)
+                    except EmptyResult:
+                        pass
+
+                with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f:
+                    f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
+
+            exec_time = 'Script execution time: {} sec'
+            conclusion = 'Totally parsed: {} offers. Blocked: {}. Must be corrected: {}'
+
+            current_time = dt.now()
+            l.write('+{}+\n'.format('-' * 78))
+            l.write('|{:^78}|\n'.format('Finish at: {}'.format(current_time.isoformat())))
+            l.write('|{:^78}|\n'.format(exec_time.format((current_time - start_time).total_seconds())))
+            l.write('|{:^78}|\n'.format(conclusion.format(total, EmptyResult.count, EmptyField.count)))
+            l.write('+{}+\n'.format('-' * 78))
         except IOError:
             pass
 
-        exec_time = 'Script execution time: {} sec'
-        conclusion = 'Totally parsed: {} offers. Blocked: {}. Must be corrected: {}'
 
-        current_time = dt.now()
-        l.write('+{}+\n'.format('-' * 78))
-        l.write('|{:^78}|\n'.format('Finish at: {}'.format(current_time.isoformat())))
-        l.write('|{:^78}|\n'.format(exec_time.format((current_time - start_time).total_seconds())))
-        l.write('|{:^78}|\n'.format(conclusion.format(total, EmptyResult.count, EmptyField.count)))
-        l.write('+{}+\n'.format('-' * 78))
+if __name__ == '__main__':
+    run()
