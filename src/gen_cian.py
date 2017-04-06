@@ -375,32 +375,39 @@ for cat in DIRECTORIES:
         l.write('|{:^78}|\n'.format('Start at: {}'.format(start_time.isoformat())))
         l.write('+{}+\n'.format('-' * 78))
 
-        doc = etree.parse(os.path.join(cat, IN_FILE))
-        objects = doc.xpath('bn-object')
+        total = 0
 
-        total = len(objects)
+        try:
 
-        root = etree.Element('feed')
-        version = etree.SubElement(root, 'feed_version')
-        version.text = '2'
-        for obj in objects:
-            try:
-                convert(root, obj, l)
-            except EmptyResult:
-                pass
+            doc = etree.parse(os.path.join(cat, IN_FILE))
+            objects = doc.xpath('bn-object')
 
-        doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
-        objects = doc.xpath('bn-object')
+            total = len(objects)
 
-        total += len(objects)
+            root = etree.Element('feed')
+            version = etree.SubElement(root, 'feed_version')
+            version.text = '2'
+            for obj in objects:
+                try:
+                    convert(root, obj, l)
+                except EmptyResult:
+                    pass
 
-        for obj in objects:
-            try:
-                convert(root, obj, l)
-            except EmptyResult:
-                pass
+            doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
+            objects = doc.xpath('bn-object')
 
-        f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
+            total += len(objects)
+
+            for obj in objects:
+                try:
+                    convert(root, obj, l)
+                except EmptyResult:
+                    pass
+
+            f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
+
+        except IOError:
+            pass
 
         exec_time = 'Script execution time: {} sec'
         conclusion = 'Totally parsed: {} offers. Blocked: {}. Must be corrected: {}'
