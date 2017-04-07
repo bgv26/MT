@@ -22,6 +22,73 @@ class EmptyField:
     count = 0
 
 
+class Offer:
+    blocked_err_str = 'Blocked: {} "{}" in advert id [{}].\n'
+    fix_err_str = 'Fix this: field "{}" in advert id: [{}] is  empty.\n'
+
+    def __init__(self, bn_lot, log):
+        self.bn_lot = bn_lot
+        self.bn_id = self.get_node_value('id', True)
+        self.bn_type = self.get_node_value('type', True)
+        self.bn_action = self.get_node_value('action', True)
+        self.bn_description_print = self.get_node_value('description/print', True, 'short description')
+
+        # Address - Адрес объявления
+        self.address = get_node_value(bn_lot, 'location/address', True)
+
+        # Photos - Фотографии объекта
+        self.bn_photos = bn_lot.xpath('files/image')
+        if not self.bn_photos:
+            EmptyField.count += 1
+            log.write(self.fix_err_str.format('photos', self.bn_id))
+
+    def get_node_value(self, node, required=False, field_name=''):
+        try:
+            value = self.bn_lot.xpath(node).pop().text.strip()
+            return value
+        except IndexError:
+            if required:
+                if not field_name:
+                    field_name = node
+                raise EmptyRequiredFieldException(
+                    self.blocked_err_str.format('empty required field', field_name, self.bn_id))
+            return ''
+
+    def get_description(self):
+
+        def get_lot_number(offer_id):
+            # symbols from 4 length 5 + '-8' + char value from three last digits in text
+            return offer_id[4:9] + '-8' + bytes([int(offer_id[9:])]).decode('cp1251')
+
+        description = self.get_node_value('description/full', True, 'full description')
+        # check for occurrences block phrases in description
+        for block in BLOCK_PHRASES:
+            if block in description:
+                raise BlockedRecordException(
+                    self.blocked_err_str.format('bad description', description, self.bn_id))
+
+        phone = self.get_phone()
+        office = OFFICES[phone]['office']
+        lot_number = get_lot_number(self.bn_id)
+        return "{}\nПри звонке в {} укажите лот: {}".format(description, office, lot_number)
+
+    def get_phone(self):
+        phone = self.get_node_value('agent/phone', True)
+
+        if phone not in OFFICES:
+            raise BlockedRecordException(
+                self.blocked_err_str.format('unknown phone number', phone, self.bn_id))
+        return phone
+
+    def get_price(self):
+        price = self.get_node_value('price/value', True, 'price')
+        return str(int(price) * 0.95)
+
+
+class CommerceOffer(Offer):
+    pass
+
+
 def gen_new_id(offer_id):
     return ID_PREFIX + offer_id[4:]
 
@@ -367,6 +434,7 @@ def convert(root_node, bn_lot, log):
 
 
 def run():
+    skipped_count = 0
     for cat in DIRECTORIES:
         with open(os.path.join(cat, LOG_FILE), 'w+', encoding='utf-8') as l:
             start_time = dt.now()
@@ -388,8 +456,9 @@ def run():
             for obj in objects:
                 try:
                     convert(root, obj, l)
-                except EmptyResult:
-                    pass
+                except (EmptyRequiredFieldException, BlockedRecordException) as e:
+                    l.write(str(e))
+                    skipped_count += 1
 
             try:
                 doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
@@ -402,8 +471,9 @@ def run():
             for obj in objects:
                 try:
                     convert(root, obj, l)
-                except EmptyResult:
-                    pass
+                except (EmptyRequiredFieldException, BlockedRecordException) as e:
+                    l.write(str(e))
+                    skipped_count += 1
 
             if total:
                 with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f:
@@ -416,7 +486,7 @@ def run():
             l.write('+{}+\n'.format('-' * 78))
             l.write('|{:^78}|\n'.format('Finish at: {}'.format(current_time.isoformat())))
             l.write('|{:^78}|\n'.format(exec_time.format((current_time - start_time).total_seconds())))
-            l.write('|{:^78}|\n'.format(conclusion.format(total, EmptyResult.count, EmptyField.count)))
+            l.write('|{:^78}|\n'.format(conclusion.format(total, skipped_count, EmptyField.count)))
             l.write('+{}+\n'.format('-' * 78))
 
 
