@@ -374,6 +374,9 @@ def run():
             l.write('|{:^78}|\n'.format('Start at: {}'.format(start_time.isoformat())))
             l.write('+{}+\n'.format('-' * 78))
 
+            EmptyResult.count = 0
+            EmptyField.count = 0
+
             try:
                 doc = etree.parse(os.path.join(cat, IN_FILE))
                 objects = doc.xpath('bn-object')
