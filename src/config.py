@@ -19,10 +19,10 @@ DIRECTORIES = (
     os.path.join(HOME_DIR_MT, 'vos'),
     os.path.join(HOME_DIR_MT, 'str'),
     os.path.join(HOME_DIR_MT, 'bat'),
-    HOME_DIR_NIRLAN,
-    # os.path.join(HOME_DIR_NIRLAN, 'centr'),
-    # os.path.join(HOME_DIR_NIRLAN, 'sever'),
-    # os.path.join(HOME_DIR_NIRLAN, 'zapad'),
+    # HOME_DIR_NIRLAN,
+    os.path.join(HOME_DIR_NIRLAN, 'centr'),
+    os.path.join(HOME_DIR_NIRLAN, 'sever'),
+    os.path.join(HOME_DIR_NIRLAN, 'zapad'),
 )
 
 # Имена файлов с выгрузками bn для ЦИАНа
