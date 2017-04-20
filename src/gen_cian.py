@@ -23,62 +23,77 @@ class EmptyField:
 
 
 class Offer:
-    blocked_err_str = 'Blocked: {} "{}" in advert id [{}].\n'
-    fix_err_str = 'Fix this: field "{}" in advert id: [{}] is  empty.\n'
+    blocked_error_string = 'Blocked: {} "{}" in advert id [{}].\n'
+    fix_error_string = 'Fix this: field "{}" in advert id: [{}] is  empty.\n'
+    ACTIONS = {
+        'аренда': 'Rent',
+        'продажа': 'Sale',
+    }
 
-    def __init__(self, bn_lot, log):
+    def __init__(self, bn_lot, root, log):
         self.bn_lot = bn_lot
+        self.root = root
+        self.log = log
         self.bn_id = self.get_node_value('id', True)
-        self.bn_type = self.get_node_value('type', True)
-        self.bn_action = self.get_node_value('action', True)
-        self.bn_description_print = self.get_node_value('description/print', True, 'short description')
+        self.__description = self.get_node_value('description/full', True, 'full description')
 
-        # Address - Адрес объявления
-        self.address = get_node_value(bn_lot, 'location/address', True)
+        # check for occurrences block phrases in description
+        for block in BLOCK_PHRASES:
+            if block in self.__description:
+                raise BlockedRecordException(
+                    self.blocked_error_string.format('bad description', self.__description, self.bn_id))
 
-        # Photos - Фотографии объекта
-        self.bn_photos = bn_lot.xpath('files/image')
-        if not self.bn_photos:
-            EmptyField.count += 1
-            log.write(self.fix_err_str.format('photos', self.bn_id))
+        phone = self.get_node_value('agent/phone', True)
+        if phone in OFFICES:
+            self.__phone = OFFICES[phone]['phone']
+            self.__office = OFFICES[phone]['office']
+        else:
+            raise BlockedRecordException(
+                self.blocked_error_string.format('unknown phone number', phone, self.bn_id))
 
     def get_node_value(self, node, required=False, field_name=''):
         try:
-            value = self.bn_lot.xpath(node).pop().text.strip()
-            return value
+            return self.bn_lot.xpath(node).pop().text.strip()
         except IndexError:
             if required:
-                if not field_name:
-                    field_name = node
+                field_name = field_name or node
                 raise EmptyRequiredFieldException(
-                    self.blocked_err_str.format('empty required field', field_name, self.bn_id))
-            return ''
+                    self.blocked_error_string.format('empty required field', field_name, self.bn_id))
+
+    def get_node_multiple_values(self, node, required=False, field_name=''):
+        result = []
+        for item in self.bn_lot.xpath(node):
+            result.append(item.text.strip())
+        if required and not result:
+            field_name = field_name or node
+            raise EmptyRequiredFieldException(
+                self.blocked_error_string.format('empty required field', field_name, self.bn_id))
+        return result
+
+    def get_id(self):
+        # ExternalId - Id объявления
+        return ID_PREFIX + self.bn_id[4:]
+
+    def get_address(self):
+        # Address - Адрес объявления
+        return self.get_node_value('location/address', True)
+
+    def get_photos(self):
+        # Photos - Фотографии объекта
+        bn_photos = self.get_node_multiple_values('files/image')
+        if bn_photos:
+            return bn_photos
+        else:
+            EmptyField.count += 1
+            self.log.write(self.fix_error_string.format('photos', self.bn_id))
 
     def get_description(self):
+        # Description - Текст объявления
 
-        def get_lot_number(offer_id):
-            # symbols from 4 length 5 + '-8' + char value from three last digits in text
-            return offer_id[4:9] + '-8' + bytes([int(offer_id[9:])]).decode('cp1251')
+        # symbols from 4 length 5 + '-8' + char value from three last digits in text
+        lot_number = self.bn_id[4:9] + '-8' + bytes([int(self.bn_id[9:])]).decode('cp1251')
 
-        description = self.get_node_value('description/full', True, 'full description')
-        # check for occurrences block phrases in description
-        for block in BLOCK_PHRASES:
-            if block in description:
-                raise BlockedRecordException(
-                    self.blocked_err_str.format('bad description', description, self.bn_id))
-
-        phone = self.get_phone()
-        office = OFFICES[phone]['office']
-        lot_number = get_lot_number(self.bn_id)
-        return "{}\nПри звонке в {} укажите лот: {}".format(description, office, lot_number)
-
-    def get_phone(self):
-        phone = self.get_node_value('agent/phone', True)
-
-        if phone not in OFFICES:
-            raise BlockedRecordException(
-                self.blocked_err_str.format('unknown phone number', phone, self.bn_id))
-        return phone
+        return "{}\nПри звонке в {} укажите лот: {}".format(self.__description, self.__office, lot_number)
 
     def get_price(self):
         price = self.get_node_value('price/value', True, 'price')
@@ -86,7 +101,135 @@ class Offer:
 
 
 class CommerceOffer(Offer):
-    pass
+    def get_price(self):
+        return self.get_node_value('price/value', True, 'price')
+
+
+class Flat(Offer):
+    # Квартира
+    def __init__(self, bn_lot, root, log):
+        super(Flat, self).__init__(bn_lot, root, log)
+        action = self.get_node_value('action', True)
+        self.__category = 'flat' + self.ACTIONS[action]
+
+    def __get_flat_rooms_count(self):
+        # FlatRoomsCount - Количество комнат
+        return self.get_node_value('rooms-total', True)
+
+    def __get_total_area(self):
+        # TotalArea - Общая площадь
+        return self.get_node_value('total/value', True, 'total area')
+
+    def __get_floor_number(self):
+        # FloorNumber - Этаж
+        return self.get_node_value('floor', True)
+
+    def __get_living_area(self):
+        # LivingArea - Жилая площадь
+        bn_living_area = self.get_node_value('living/value')
+        if bn_living_area:
+            return bn_living_area
+        else:
+            EmptyField.count += 1
+            self.log.write(self.fix_error_string.format('living area', self.bn_id))
+
+    def __get_kitchen_area(self):
+        # KitchenArea - Площадь кухни
+        bn_kitchen_area = self.get_node_value('kitchen/value')
+        if bn_kitchen_area:
+            return bn_kitchen_area
+        else:
+            EmptyField.count += 1
+            self.log.write(self.fix_error_string.format('kitchen area', self.bn_id))
+
+    def __get_floors_count(self):
+        # FloorsCount - Количество этажей в здании
+        return self.get_node_value('floors', True)
+
+
+class Room(Offer):
+    # Комната
+    def __init__(self, bn_lot, root, log):
+        super(Room, self).__init__(bn_lot, root, log)
+        action = self.get_node_value('action', True)
+        self.__category = 'room' + self.ACTIONS[action]
+
+    def __get_rooms_for_sale_count(self):
+        # RoomsForSaleCount - Количество комнат в продажу/аренду
+        bn_rooms_offer = self.get_node_value('rooms-offer')
+        if bn_rooms_offer:
+            return bn_rooms_offer
+        else:
+            EmptyField.count += 1
+            self.log.write(self.fix_error_string.format('rooms offer', self.bn_id))
+
+    def __get_room_area(self):
+        # RoomArea - Площадь комнаты
+        return self.get_node_value('living/value', True, 'living area')
+
+    def __get_rooms_count(self):
+        # RoomsCount - Количество комнат всего
+        bn_rooms_total = self.get_node_value('rooms-total')
+        if bn_rooms_total:
+            return bn_rooms_total
+        else:
+            EmptyField.count += 1
+            self.log.write(self.fix_error_string.format('rooms total', self.bn_id))
+
+    def __get_total_area(self):
+        # TotalArea - Общая площадь
+        return self.get_node_value('total/value', True, 'total area')
+
+    def __get_floor_number(self):
+        # FloorNumber - Этаж
+        return self.get_node_value('floor', True)
+
+    def __get_kitchen_area(self):
+        # KitchenArea - Площадь кухни
+        bn_kitchen_area = self.get_node_value('kitchen/value')
+        if bn_kitchen_area:
+            return bn_kitchen_area
+        else:
+            EmptyField.count += 1
+            self.log.write(self.fix_error_string.format('kitchen area', self.bn_id))
+
+    def __get_floors_count(self):
+        # FloorsCount - Количество этажей в здании
+        return self.get_node_value('floors', True)
+
+
+class House(Offer):
+    # Дом
+    def __init__(self, bn_lot, root, log):
+        super(House, self).__init__(bn_lot, root, log)
+        action = self.get_node_value('action', True)
+        self.__category = 'house' + self.ACTIONS[action]
+
+    def __get_total_area(self):
+        # TotalArea - Общая площадь
+        return self.get_node_value('total/value', True, 'total area')
+
+    def __get_land_area(self):
+        # Land - Информация об участке
+        return self.get_node_value('lot/value', True, 'land area')
+
+    def __get_floors_count(self):
+        # FloorsCount - Количество этажей в здании
+        bn_floors_count = self.get_node_value('floors')
+        if bn_floors_count:
+            return bn_floors_count
+        else:
+            EmptyField.count += 1
+            self.log.write(self.fix_error_string.format('floors', self.bn_id))
+
+    def __get_build_year(self):
+        # BuildYear - Год постройки
+        bn_build_year = self.get_node_value('building/year')
+        if bn_build_year:
+            return bn_build_year
+        else:
+            EmptyField.count += 1
+            self.log.write(self.fix_error_string.format('building year', self.bn_id))
 
 
 def gen_new_id(offer_id):
@@ -434,13 +577,15 @@ def convert(root_node, bn_lot, log):
 
 
 def run():
-    skipped_count = 0
     for cat in DIRECTORIES:
         with open(os.path.join(cat, LOG_FILE), 'w+', encoding='utf-8') as l:
             start_time = dt.now()
             l.write('+{}+\n'.format('-' * 78))
             l.write('|{:^78}|\n'.format('Start at: {}'.format(start_time.isoformat())))
             l.write('+{}+\n'.format('-' * 78))
+
+            EmptyResult.count = 0
+            EmptyField.count = 0
 
             try:
                 doc = etree.parse(os.path.join(cat, IN_FILE))
@@ -456,9 +601,8 @@ def run():
             for obj in objects:
                 try:
                     convert(root, obj, l)
-                except (EmptyRequiredFieldException, BlockedRecordException) as e:
-                    l.write(str(e))
-                    skipped_count += 1
+                except EmptyResult:
+                    pass
 
             try:
                 doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
@@ -471,9 +615,8 @@ def run():
             for obj in objects:
                 try:
                     convert(root, obj, l)
-                except (EmptyRequiredFieldException, BlockedRecordException) as e:
-                    l.write(str(e))
-                    skipped_count += 1
+                except EmptyResult:
+                    pass
 
             if total:
                 with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f:
@@ -486,7 +629,7 @@ def run():
             l.write('+{}+\n'.format('-' * 78))
             l.write('|{:^78}|\n'.format('Finish at: {}'.format(current_time.isoformat())))
             l.write('|{:^78}|\n'.format(exec_time.format((current_time - start_time).total_seconds())))
-            l.write('|{:^78}|\n'.format(conclusion.format(total, skipped_count, EmptyField.count)))
+            l.write('|{:^78}|\n'.format(conclusion.format(total, EmptyResult.count, EmptyField.count)))
             l.write('+{}+\n'.format('-' * 78))
 
 
