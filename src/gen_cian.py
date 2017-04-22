@@ -128,7 +128,7 @@ def get_office_suffix(offer_id):
 
 
 def get_lot_number(offer_id):
-    # symbols from 4 length 5 + '-8' + char value from three last digits in text
+    # symbols from 4 length 5 + char value from three last digits in text
     return offer_id[4:9] + get_office_suffix(offer_id)
 
 
