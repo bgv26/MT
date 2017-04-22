@@ -129,7 +129,7 @@ def get_office_suffix(offer_id):
 
 def get_lot_number(offer_id):
     # symbols from 4 length 5 + '-8' + char value from three last digits in text
-    return offer_id[4:9] + '-8' + get_office_suffix(offer_id)
+    return offer_id[4:9] + get_office_suffix(offer_id)
 
 
 def convert(root_node, bn_lot, log):
@@ -219,8 +219,26 @@ def convert(root_node, bn_lot, log):
                 log.write(err_str.format('kitchen area', bn_id))
 
             # FloorsCount - Количество этажей в здании
-            etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
-                get_node_value(bn_lot, 'floors', True)
+            bn_floors = get_node_value(bn_lot, 'floors', True)
+            building = etree.SubElement(lot, 'Building')
+            etree.SubElement(building, 'FloorsCount').text = bn_floors
+
+            # PassengerLiftsCount - Наличие пассажирского лифта
+            if int(bn_floors) >= 6:
+                etree.SubElement(building, 'PassengerLiftsCount').text = '1'
+
+            # BalconiesCount или LoggiasCount - Наличие балкона или лоджии
+            bn_balcony = get_node_value(bn_lot, 'balcony')
+            if bn_balcony == 'балкон':
+                etree.SubElement(lot, 'BalconiesCount').text = '1'
+            if bn_balcony == 'лоджия':
+                etree.SubElement(lot, 'LoggiasCount').text = '1'
+
+            # SeparateWcsCount или CombinedWcsCount - Наличие раздельного или совмещенного санузла
+            if 'санузел раздельный' in bn_description_full:
+                etree.SubElement(lot, 'SeparateWcsCount').text = '1'
+            if 'санузел совмещенный' in bn_description_full:
+                etree.SubElement(lot, 'CombinedWcsCount').text = '1'
 
         # Комната
         if bn_type == 'комната':
@@ -258,8 +276,26 @@ def convert(root_node, bn_lot, log):
                 log.write(err_str.format('kitchen area', bn_id))
 
             # FloorsCount - Количество этажей в здании
-            etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
-                get_node_value(bn_lot, 'floors', True)
+            bn_floors = get_node_value(bn_lot, 'floors', True)
+            building = etree.SubElement(lot, 'Building')
+            etree.SubElement(building, 'FloorsCount').text = bn_floors
+
+            # PassengerLiftsCount - Наличие пассажирского лифта
+            if int(bn_floors) >= 6:
+                etree.SubElement(building, 'PassengerLiftsCount').text = '1'
+
+            # BalconiesCount или LoggiasCount - Наличие балкона или лоджии
+            bn_balcony = get_node_value(bn_lot, 'balcony')
+            if bn_balcony == 'балкон':
+                etree.SubElement(lot, 'BalconiesCount').text = '1'
+            if bn_balcony == 'лоджия':
+                etree.SubElement(lot, 'LoggiasCount').text = '1'
+
+            # SeparateWcsCount или CombinedWcsCount - Наличие раздельного или совмещенного санузла
+            if 'санузел раздельный' in bn_description_full:
+                etree.SubElement(lot, 'SeparateWcsCount').text = '1'
+            if 'санузел совмещенный' in bn_description_full:
+                etree.SubElement(lot, 'CombinedWcsCount').text = '1'
 
         # Дом, коттедж или таунхаус
         if bn_type == 'дом' or bn_type == 'коттедж' or bn_type == 'таунхаус':
@@ -287,6 +323,12 @@ def convert(root_node, bn_lot, log):
                     EmptyField.count += 1
                     log.write(err_str.format('building year', bn_id))
 
+            # WcLocationType - Расположение санузла
+            if 'санузел в доме' in bn_description_full:
+                etree.SubElement(lot, 'WcLocationType').text = 'indoors'
+            if 'санузел во дворе' in bn_description_full:
+                etree.SubElement(lot, 'WcLocationType').text = 'outdoors'
+
         # Участок
         if bn_type == 'участок':
             # Land - Информация об участке
@@ -303,8 +345,13 @@ def convert(root_node, bn_lot, log):
             etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
             # FloorsCount - Количество этажей в здании
-            etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
-                get_node_value(bn_lot, 'floors', True)
+            bn_floors = get_node_value(bn_lot, 'floors', True)
+            building = etree.SubElement(lot, 'Building')
+            etree.SubElement(building, 'FloorsCount').text = bn_floors
+
+            # PassengerLiftsCount - Наличие пассажирского лифта
+            if int(bn_floors) >= 6:
+                etree.SubElement(building, 'PassengerLiftsCount').text = '1'
 
         # Торговая площадь
         if bn_type == 'торговые помещения':
@@ -315,8 +362,13 @@ def convert(root_node, bn_lot, log):
             etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
             # FloorsCount - Количество этажей в здании
-            etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
-                get_node_value(bn_lot, 'floors', True)
+            bn_floors = get_node_value(bn_lot, 'floors', True)
+            building = etree.SubElement(lot, 'Building')
+            etree.SubElement(building, 'FloorsCount').text = bn_floors
+
+            # PassengerLiftsCount - Наличие пассажирского лифта
+            if int(bn_floors) >= 6:
+                etree.SubElement(building, 'PassengerLiftsCount').text = '1'
 
         # Коммерческая земля
         if bn_type == 'земельные участки':
@@ -346,8 +398,13 @@ def convert(root_node, bn_lot, log):
                 bn_description_print)
 
             # FloorsCount - Количество этажей в здании
-            etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
-                get_node_value(bn_lot, 'floors', True)
+            bn_floors = get_node_value(bn_lot, 'floors', True)
+            building = etree.SubElement(lot, 'Building')
+            etree.SubElement(building, 'FloorsCount').text = bn_floors
+
+            # PassengerLiftsCount - Наличие пассажирского лифта
+            if int(bn_floors) >= 6:
+                etree.SubElement(building, 'PassengerLiftsCount').text = '1'
 
         if bn_type == 'производственно-складские помещения':
             # TotalArea - Общая площадь
@@ -357,8 +414,13 @@ def convert(root_node, bn_lot, log):
             etree.SubElement(lot, 'FloorNumber').text = get_node_value(bn_lot, 'floor', True)
 
             # FloorsCount - Количество этажей в здании
-            etree.SubElement(etree.SubElement(lot, 'Building'), 'FloorsCount').text = \
-                get_node_value(bn_lot, 'floors', True)
+            bn_floors = get_node_value(bn_lot, 'floors', True)
+            building = etree.SubElement(lot, 'Building')
+            etree.SubElement(building, 'FloorsCount').text = bn_floors
+
+            # PassengerLiftsCount - Наличие пассажирского лифта
+            if int(bn_floors) >= 6:
+                etree.SubElement(building, 'PassengerLiftsCount').text = '1'
 
     except (EmptyRequiredFieldException, BlockedRecordException) as e:
         log.write(str(e))
