@@ -9,7 +9,7 @@ HOME_DIR_NIRLAN = r'/home/xml/export/n_cian'
 
 # Директории
 DIRECTORIES = (
-    # r'C:\Devel\PyCharmProject\MT\src',
+    # r'C:\Devel\MT\src',
     # r'D:\Devel\MT\src',
     os.path.join(HOME_DIR_MT, 'tem'),
     os.path.join(HOME_DIR_MT, 'soc'),

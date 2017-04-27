@@ -37,7 +37,7 @@ def get_node_value(parent, node, required=False, field_name=''):
     try:
         value = parent.xpath(node).pop().text.strip()
         return value
-    except IndexError:
+    except (IndexError, AttributeError):
         if required:
             if not field_name:
                 field_name = node
@@ -106,6 +106,13 @@ def create_price(node, lot, category, action, price):
             return ad_terms == 'Ипотека'
         return False
 
+    def get_price_type(item):
+        price_type = get_node_value(item, 'price/unit')
+        if price_type == 'м':
+            return 'squareMeter'
+        else:
+            return 'all'
+
     commerce_type = (
         'офисы',
         'торговые помещения',
@@ -118,6 +125,9 @@ def create_price(node, lot, category, action, price):
 
     bargain = etree.SubElement(node, 'BargainTerms')
     etree.SubElement(bargain, 'Price').text = price if category in commerce_type else str(int(price) * ratio)
+    if action == 'аренда' and category in commerce_type:
+        etree.SubElement(bargain, 'PriceType').text = get_price_type(lot)
+        etree.SubElement(bargain, 'PaymentPeriod').text = 'monthly'
     etree.SubElement(bargain, 'Currency').text = 'rur'
     if action == 'продажа' and (category not in commerce_type and category != 'участок'):
         etree.SubElement(bargain, 'MortgageAllowed').text = str(is_mortgage(lot)).lower()
