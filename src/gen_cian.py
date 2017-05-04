@@ -3,7 +3,7 @@
 import os
 from datetime import datetime as dt
 from lxml import etree
-from config import DIRECTORIES, IN_FILE, IN_FILE_COMMERCE, LOG_FILE, OUT_FILE, ID_PREFIX, BLOCK_PHRASES, OFFICES
+from config import Cian
 
 
 class BlockedRecordException(Exception):
@@ -23,11 +23,11 @@ class EmptyField:
 
 
 def gen_new_id(offer_id):
-    return ID_PREFIX + offer_id[4:]
+    return Cian.ID_PREFIX + offer_id[4:]
 
 
 def is_block(text):
-    for block in BLOCK_PHRASES:
+    for block in Cian.BLOCK_PHRASES:
         if block in text:
             return True
     return False
@@ -160,7 +160,7 @@ def convert(root_node, bn_lot, log):
 
         bn_phone = get_node_value(bn_lot, 'agent/phone', True)
 
-        if bn_phone not in OFFICES:
+        if bn_phone not in Cian.OFFICES:
             raise BlockedRecordException(
                 'Blocked: unknown phone number "{}" in advert id [{}].\n'.format(bn_phone, bn_id))
 
@@ -170,7 +170,7 @@ def convert(root_node, bn_lot, log):
         etree.SubElement(lot, 'ExternalId').text = gen_new_id(bn_id)
 
         # Description - Текст объявления
-        office = OFFICES[bn_phone]['office']
+        office = Cian.OFFICES[bn_phone]['office']
         lot_number = get_lot_number(bn_id)
         etree.SubElement(lot, 'Description').text = \
             "{}\nПри звонке в {} укажите лот: {}".format(bn_description_full, office, lot_number)
@@ -181,7 +181,7 @@ def convert(root_node, bn_lot, log):
         # Phones - Телефон
         phone_schema = etree.SubElement(etree.SubElement(lot, 'Phones'), 'PhoneSchema')
         etree.SubElement(phone_schema, 'CountryCode').text = '+7'
-        etree.SubElement(phone_schema, 'Number').text = OFFICES[bn_phone]['phone']
+        etree.SubElement(phone_schema, 'Number').text = Cian.OFFICES[bn_phone]['phone']
 
         # Photos - Фотографии объекта
         bn_photos = bn_lot.xpath('files/image')
@@ -439,8 +439,8 @@ def convert(root_node, bn_lot, log):
 
 
 def run():
-    for cat in DIRECTORIES:
-        with open(os.path.join(cat, LOG_FILE), 'w+', encoding='utf-8') as l:
+    for cat in Cian.DIRECTORIES:
+        with open(os.path.join(cat, Cian.LOG_FILE), 'w+', encoding='utf-8') as l:
             start_time = dt.now()
             l.write('+{}+\n'.format('-' * 78))
             l.write('|{:^78}|\n'.format('Start at: {}'.format(start_time.isoformat())))
@@ -450,7 +450,7 @@ def run():
             EmptyResult.count = 0
 
             try:
-                doc = etree.parse(os.path.join(cat, IN_FILE))
+                doc = etree.parse(os.path.join(cat, Cian.IN_FILE))
                 objects = doc.xpath('bn-object')
             except IOError:
                 objects = []
@@ -467,7 +467,7 @@ def run():
                     pass
 
             try:
-                doc = etree.parse(os.path.join(cat, IN_FILE_COMMERCE))
+                doc = etree.parse(os.path.join(cat, Cian.IN_FILE_COMMERCE))
                 objects = doc.xpath('bn-object')
             except IOError:
                 objects = []
@@ -481,7 +481,7 @@ def run():
                     pass
 
             if total:
-                with open(os.path.join(cat, OUT_FILE), 'w+', encoding='utf-8') as f:
+                with open(os.path.join(cat, Cian.OUT_FILE), 'w+', encoding='utf-8') as f:
                     f.write(etree.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8'))
 
             exec_time = 'Script execution time: {} sec'
