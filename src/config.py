@@ -139,6 +139,7 @@ class Yandex:
         '8 (863) 2-664-301': {'office': 'Нирлан офис Западный', 'phone': '+79381120362'},
     }
 
+
 class DomClick:
     # definitions
     HOME_DIR_MT = r'/home/xml/export/domclick'
