@@ -3,7 +3,7 @@
 import os
 from datetime import datetime as dt
 from lxml import etree
-from config import Yandex
+from config import DomClick
 
 
 class EmptyResult(Exception):
@@ -11,8 +11,8 @@ class EmptyResult(Exception):
 
 
 def run():
-    for cat in Yandex.DIRECTORIES:
-        with open(os.path.join(cat, Yandex.LOG_FILE), 'w+', encoding='utf-8') as l:
+    for cat in DomClick.DIRECTORIES:
+        with open(os.path.join(cat, DomClick.LOG_FILE), 'w+', encoding='utf-8') as l:
             start_time = dt.now()
             l.write('+{}+\n'.format('-' * 78))
             l.write('|{:^78}|\n'.format('Start at: {}'.format(start_time.isoformat())))
@@ -20,10 +20,10 @@ def run():
 
             try:
                 parser = etree.XMLParser(remove_blank_text=True)
-                doc = etree.parse(os.path.join(cat, Yandex.IN_FILE), parser)
+                doc = etree.parse(os.path.join(cat, DomClick.IN_FILE), parser)
                 root = doc.getroot()
-                ns = {'ya': root.nsmap[None]}
-                objects = doc.xpath('ya:offer', namespaces=ns)
+                ns = {'dc': root.nsmap[None]}
+                objects = doc.xpath('dc:offer', namespaces=ns)
             except IOError:
                 doc = None
                 objects = []
@@ -34,36 +34,32 @@ def run():
                 try:
                     offer_id = obj.attrib['internal-id']
 
-                    # Add hide-exact-address - скрытие точного расположения
-                    location = obj.xpath('ya:location', namespaces=ns)[0]
-                    etree.SubElement(location, 'hide-exact-address').text = 'true'
-
                     # Change organization, name, phone - замена телефона и названия организации
-                    agent = obj.xpath('ya:sales-agent', namespaces=ns)[0]
-                    organization = agent.xpath('ya:organization', namespaces=ns)[0]
-                    name = agent.xpath('ya:name', namespaces=ns)[0]
-                    phone = agent.xpath('ya:phone', namespaces=ns)[0]
+                    agent = obj.xpath('dc:sales-agent', namespaces=ns)[0]
+                    organization = agent.xpath('dc:organization', namespaces=ns)[0]
+                    name = agent.xpath('dc:name', namespaces=ns)[0]
+                    phone = agent.xpath('dc:phone', namespaces=ns)[0]
 
                     old_phone = phone.text
 
-                    if old_phone not in Yandex.OFFICES:
+                    if old_phone not in DomClick.OFFICES:
                         l.write('Blocked: unknown phone number "{}" in advert id [{}].\n'.format(old_phone, offer_id))
                         EmptyResult.count += 1
                         raise EmptyResult()
 
-                    phone.text = Yandex.OFFICES[old_phone]['phone']
-                    organization.text = Yandex.OFFICES[old_phone]['office']
-                    name.text = Yandex.OFFICES[old_phone]['office']
+                    phone.text = DomClick.OFFICES[old_phone]['phone']
+                    organization.text = DomClick.OFFICES[old_phone]['office']
+                    name.text = DomClick.OFFICES[old_phone]['office']
 
                     # Change price - замена цены
-                    price = obj.xpath('ya:price/ya:value', namespaces=ns)[0]
-                    price.text = "%.2f" % (int(price.text) * Yandex.PRICE_RATIO)
+                    price = obj.xpath('dc:price/dc:value', namespaces=ns)[0]
+                    price.text = "%.2f" % (int(price.text) * DomClick.PRICE_RATIO)
 
                 except EmptyResult:
                     pass
 
             if doc and total:
-                with open(os.path.join(cat, Yandex.OUT_FILE), 'w+', encoding='utf-8') as f:
+                with open(os.path.join(cat, DomClick.OUT_FILE), 'w+', encoding='utf-8') as f:
                     f.write(etree.tostring(doc,
                                            pretty_print=True,
                                            xml_declaration=True,

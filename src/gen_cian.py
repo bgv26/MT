@@ -121,10 +121,9 @@ def create_price(node, lot, category, action, price):
         'производственно-складские помещения',
     )
 
-    ratio = 0.95
-
     bargain = etree.SubElement(node, 'BargainTerms')
-    etree.SubElement(bargain, 'Price').text = price if category in commerce_type else str(int(price) * ratio)
+    etree.SubElement(bargain, 'Price').text = \
+        price if category in commerce_type else "%.2f" % (int(price) * Cian.PRICE_RATIO)
     if action == 'аренда' and category in commerce_type:
         etree.SubElement(bargain, 'PriceType').text = get_price_type(lot)
         etree.SubElement(bargain, 'PaymentPeriod').text = 'monthly'
